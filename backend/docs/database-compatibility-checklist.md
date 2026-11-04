@@ -1,8 +1,40 @@
 # MagicReview AI — Hostinger database compatibility checklist
 
-Status: NOT VERIFIED. Prepared 2026-11-04 for Task 02. No production connection,
-SQL execution, tables, grants, dependencies or migration implementation occurred.
-This is a verification procedure for later authorization, not a runnable migration.
+Status: PARTIALLY VERIFIED / Task 03 migration foundation implemented, 2026-11-04.
+No Hostinger production connection or modification occurred. Task 03 authorized
+disposable local MariaDB tests and only migration infrastructure, not business DDL.
+The metadata SQL and runner now exist; the inventory SQL below remains unexecuted
+against Hostinger. All production capability tests still need separate approval.
+
+## Task 03 evidence update
+
+User-verified Hostinger facts (reported, not independently queried by this task):
+MariaDB 11.8.9; default InnoDB; utf8mb4 / utf8mb4_unicode_ci; transactions and
+savepoints supported; current project user has ALL PRIVILEGES on its database.
+Separate runtime/migration identities and effective restricted grants remain
+unverified. ALL PRIVILEGES is not append-only isolation.
+
+Local evidence: official MariaDB 11.8.9 Windows ZIP server, newly initialized
+disposable data directory, random ephemeral credential, loopback-only random port.
+No existing project/Hostinger database was used. SQL created only migration
+metadata and synthetic integration fixtures; no business schema was implemented.
+
+- [x] Existing mysql2 pool factory reused without altering application behavior.
+- [x] Explicit migrate:status and migrate:up commands, no lifecycle/startup hook.
+- [x] SHA-256 file/postcondition tracking, validated ledger shape and history prefix.
+- [x] GET_LOCK excludes a concurrent runner and survives a commit locally.
+- [x] Fresh-schema status performs no persistent writes; metadata bootstrap/rerun passes.
+- [x] Existing untracked schema, orphan bootstrap, incompatible ledger and incomplete
+  execution fail closed. Unknown vendor/version and unsafe CLI targets are rejected.
+- [x] Local DML rollback/savepoints and additive operator-style forward repair tested.
+- [x] Failed postcondition after committed DDL remains failed and blocks retries.
+- [ ] Actual Hostinger lock/session-proxy behavior and migration identity remain unverified.
+- [ ] Business CHECK/FK/generated-index/trigger behavior and audit grants remain unverified.
+
+See [migration-guide.md](migration-guide.md) for commands, supported 11.8-series
+policy, checksums, bootstrap failure boundary and manual recovery procedure.
+The CLI deliberately allows only explicit disposable loopback targets and has no
+production override. No statement here authorizes connecting to Hostinger.
 
 Architecture: [database-architecture.md](database-architecture.md).
 No separate approved SOW artifact was found in the repository. Task 02 supplies
@@ -12,7 +44,7 @@ the corrected hierarchy, merchant billing and structured-feedback decisions.
 
 | Item inspected | Repository evidence | What remains unknown |
 | --- | --- | --- |
-| backend/package.json and lockfile | mysql2 driver; no ORM or migration runner; Node 24 | Actual server engine/version; driver compatibility with that exact server |
+| backend/package.json and lockfile | mysql2 driver; explicit local migration runner; Node 24 | Hostinger integration behavior; restricted grants |
 | backend/src/db/pool.ts | Promise pool; utf8mb4; client timezone Z; bounded connections; parameterized-query-capable driver; multipleStatements disabled | Server/schema collation, session timezone, grants, TLS topology and capabilities |
 | backend/src/config/env.ts | Required DB variables and range/placeholder validation | Actual deployed values, connectivity, existing schema and account privileges |
 | backend/src/app.ts | SELECT 1 readiness; generic public errors; allowlisted private diagnostics | Schema compatibility, audit grants and tenant isolation (not implemented) |
@@ -26,7 +58,8 @@ that the host is MySQL 8. An hPanel label is not enough to identify server versi
 
 ## 2. Safe execution and evidence rules for the later check
 
-- [ ] Obtain explicit permission for any database access. This task grants none.
+- [x] Task 03 grants disposable local integration access only. Obtain separate
+  explicit permission for any Hostinger/production database access.
 - [ ] Use a disposable development/staging schema on the same exact engine/version
   and hosting permission model. A local MySQL container alone does not prove
   Hostinger grants, triggers or connection behavior.
@@ -43,7 +76,8 @@ that the host is MySQL 8. An hPanel label is not enough to identify server versi
 - [ ] Never disable foreign_key_checks, CHECK enforcement, strict mode or TLS
   validation to force tests or migrations to pass.
 
-All boxes below start unchecked. The table of expected behavior is not a result.
+Boxes below are the remaining business/hosting verification checklist; Task 03
+local results above must not be interpreted as Hostinger permission/capability results.
 
 ## 3. Read-only metadata examples (not executed)
 
@@ -87,9 +121,10 @@ vendor/version. A missing variable is not proof of enforcement.
 
 ## 4. Capability verification matrix
 
-### A. Vendor, version and support lifecycle — BLOCKER: unverified
+### A. Vendor/version reported; business dialect and lifecycle checks still pending
 
-- [ ] Record exact VERSION and version_comment in private evidence; distinguish
+- [x] User reports MariaDB 11.8.9; disposable integration server matches 11.8.9.
+- [ ] Record authorized Hostinger VERSION and version_comment in private evidence; distinguish
   MySQL, MariaDB and any provider proxy/compatible service.
 - [ ] Confirm the release is supported by the provider and vendor; old minimum
   syntax versions are not recommendations to deploy unsupported releases.
@@ -240,10 +275,11 @@ proposed immutable audit design; obtain provider support or change the design/ho
   and internal/remote topology; do not invent credentials or change production
   secrets. If remote TLS is required, verify CA and hostname; no TLS bypass.
 
-## 5. Migration runner verification gate (design only)
+## 5. Migration runner verification gate
 
-Recommend existing mysql2 with a small explicit operator-run TypeScript runner.
-The proposed contract is in architecture section 12; no runner exists yet.
+Implemented using existing mysql2 in src/migrations/. Only the metadata bootstrap
+is checked in. Local verification is recorded above; Hostinger deployment and
+business migration checks remain separate gates. See migration-guide.md.
 
 - [ ] Version ledger includes immutable version/name/SHA-256 checksum, applying/
   applied/failed state, timing, runner identifier and last verified step.
@@ -279,14 +315,16 @@ Resolved by Task 02:
 - Structured-only Phase 1 feedback; no free-text clinic field or medical details.
   Google and private feedback stay independently visible and usable; no rating gate.
 
-Unresolved blockers before implementation against Hostinger:
+Unresolved blockers before any schema execution against Hostinger:
 
-1. Exact supported database vendor/version and tested dialect.
+1. Confirm reported MariaDB 11.8.9 metadata in separately authorized evidence;
+   business dialect testing remains pending.
 2. CHECK, composite FK, generated-key and transaction behavior on that target.
 3. Trigger permissions and separate least-privilege/table-level grant feasibility.
 4. Existing schema/data inventory, restore evidence and approved additive mapping.
 5. Collation/session UTC configuration and provider advisory-lock/session behavior.
-6. Explicit approval to implement the runner and schema; this review grants none.
+6. Runner/metadata implementation was approved in Task 03. Business schema
+   migrations and all production execution still require separate approval.
 
 Product/security decisions still requiring specification: plan amounts/limits,
 one-channel-per-merchant assumption, retention/erasure policy, authentication/MFA

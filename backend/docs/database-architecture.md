@@ -3,6 +3,14 @@
 Status: REVISED PROPOSAL (Task 02), awaiting implementation approval. Review date: 2026-11-04.
 This is a design document, not an implemented schema or migration.
 
+Task 03 update: only local MariaDB migration infrastructure and its tracking
+table have now been implemented; no business schema exists from this proposal.
+User reports Hostinger MariaDB 11.8.9/InnoDB/utf8mb4_unicode_ci and transaction/
+savepoint support. Separate restricted identities remain unverified. The Task 02
+audit below is historical evidence, not a statement that the runner is still
+absent. See migration-guide.md and the updated compatibility checklist for the
+implemented local-only commands, actual tests and remaining production gates.
+
 ## 1. Audit scope and evidence
 
 Inspected backend/package.json, backend/package-lock.json, backend/tsconfig.json,
