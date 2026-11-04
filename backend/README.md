@@ -77,3 +77,12 @@ Run `npm --prefix backend run test:business:integration` with MARIADB_TEST_BIN
 pointing to local MariaDB 11.8.9 binaries to test business APIs on a disposable
 database. See [business-implementation-report.md](docs/business-implementation-report.md)
 for the complete regression results and remaining deployment gates.
+
+Task 08 adds [QR/short-link/public funnel APIs](docs/funnels-api.md). Supply an
+exact HTTPS PUBLIC_FUNNEL_ORIGIN through operator configuration before issuing
+codes; no Host-header-derived URLs or default production origin is used. The QR
+currently resolves to a JSON API, not a customer page. Private-feedback submission
+and the public frontend remain separate work. Run
+`npm --prefix backend run test:funnels:integration` with the same disposable local
+MariaDB harness. See [the Task 08 report](docs/funnels-implementation-report.md)
+for security limits, complete file inventory and all regression results.

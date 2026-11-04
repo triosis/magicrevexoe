@@ -1,5 +1,9 @@
 # Merchant, branch and industry channel API
 
+Task 08 adds branch funnel publication, short links, QR assets and public JSON
+projection/events: [funnels-api.md](funnels-api.md). Task 07 absence/scope notes
+below describe that earlier implementation; private submission remains future work.
+
 Task 07, implemented locally on 2026-11-04. All paths below start with `/api/v1`.
 No production deployment, migration, frontend integration or Google API call is
 part of this implementation. See [business-implementation-report.md](business-implementation-report.md).

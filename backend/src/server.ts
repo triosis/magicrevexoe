@@ -5,6 +5,7 @@ import { createDatabasePool, createReadinessCheck } from './db/pool.js'
 import { configuredAuth } from './auth/configuration.js'
 import { TenantService } from './tenants/service.js'
 import { BusinessService } from './business/service.js'
+import { FunnelService } from './funnels/service.js'
 
 async function main() {
   const env = loadEnv()
@@ -13,7 +14,8 @@ async function main() {
   const auth=configuredAuth(pool,process.env)
   const tenants=auth?new TenantService(pool,auth,auth.invitationDelivery()):undefined
   const business=auth&&tenants?new BusinessService(tenants,auth):undefined
-  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business })
+  const funnels=auth&&tenants?new FunnelService(pool,tenants,auth,process.env.PUBLIC_FUNNEL_ORIGIN):undefined
+  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels })
   const server = createServer(app)
   server.requestTimeout = 30_000
   server.headersTimeout = 15_000

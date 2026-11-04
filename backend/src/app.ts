@@ -9,6 +9,8 @@ import { tenantRoutes } from './tenants/routes.js'
 import type { TenantService } from './tenants/service.js'
 import { businessRoutes } from './business/routes.js'
 import type { BusinessService } from './business/service.js'
+import { funnelRoutes } from './funnels/routes.js'
+import type { FunnelService } from './funnels/service.js'
 
 type Dependencies = {
   env: Env
@@ -17,6 +19,7 @@ type Dependencies = {
   auth?: AuthService | undefined
   tenants?: TenantService | undefined
   business?: BusinessService | undefined
+  funnels?: FunnelService | undefined
 }
 
 // Only emit known driver codes and fixed descriptions. Driver messages can
@@ -41,7 +44,7 @@ export function safeDatabaseFailure(error: unknown): string {
   return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
 }
 
-export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business }: Dependencies) {
+export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business, funnels }: Dependencies) {
   let lastDatabaseFailure = ''
   let lastDatabaseFailureAt = 0
   const app = express()
@@ -63,6 +66,7 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, b
   app.use(express.json({ limit: '16kb' }))
   app.use('/api/v1/auth',authRoutes(auth))
   app.use('/api/v1/tenants',tenantRoutes(auth,tenants))
+  app.use('/api/v1',funnelRoutes(auth,funnels))
   app.use('/api/v1',businessRoutes(auth,business))
   app.get('/health/live', (_request, response) => {
     response.set('Cache-Control', 'no-store').status(200).json({ status: 'alive' })

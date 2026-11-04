@@ -1,5 +1,11 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 08 update: immutable branch funnel publication, secure short links, SVG/PNG
+QR metadata/content, public JSON projection and minimal anonymous selection/view
+events now use this schema locally. No migration or production change. See
+funnels-api.md / funnels-implementation-report.md. Public UI and private-feedback
+submission remain separate work; no complete customer journey is claimed yet.
+
 Task 07 update: merchant profiles/onboarding, industry catalog and platform-only
 channel draft/publication APIs, branches and canonical Google destinations are
 implemented locally using the existing schema. See business-api.md and
