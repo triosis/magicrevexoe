@@ -1,5 +1,11 @@
 # MariaDB migration foundation
 
+Task 05 adds 000063_auth_session_version.sql and matching verification SQL.
+It adds auth_sessions.auth_version, preserving rows with a default 0 that makes
+pre-auth sessions require a new login. Apply before enabling new auth routes,
+only on a separately authorized target. No production migration ran in Task 05.
+The Task 04 inventory below is historical; the current manifest ends at 000063.
+
 Task 03 runner plus Task 04 Phase 1 schema, locally verified on MariaDB 11.8.9.
 Hostinger production was not contacted. No API/frontend functionality changed.
 The existing pool now enables supportBigNumbers/bigNumberStrings so BIGINT IDs

@@ -1,5 +1,10 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 05 update: authentication and authorization services/routes now use this
+schema; additive version 000063 stores the session authentication-version
+snapshot. No earlier migration was edited. See auth-api.md and
+auth-security-report.md for actual controls, tests and unimplemented MFA.
+
 Status: Phase 1 schema implemented and locally verified in Task 04, 2026-11-04.
 Production rollout and API implementation remain unapproved and unperformed.
 

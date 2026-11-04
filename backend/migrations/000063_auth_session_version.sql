@@ -1,0 +1,1 @@
+ALTER TABLE auth_sessions ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 0

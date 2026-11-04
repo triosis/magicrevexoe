@@ -3,11 +3,14 @@ import cors from 'cors'
 import helmet from 'helmet'
 import type { Env } from './config/env.js'
 import { errorHandler, HttpError } from './middleware/error-handler.js'
+import { authRoutes } from './auth/routes.js'
+import type { AuthService } from './auth/service.js'
 
 type Dependencies = {
   env: Env
   isShuttingDown: () => boolean
   checkDatabase: () => Promise<void>
+  auth?: AuthService | undefined
 }
 
 // Only emit known driver codes and fixed descriptions. Driver messages can
@@ -32,7 +35,7 @@ export function safeDatabaseFailure(error: unknown): string {
   return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
 }
 
-export function createApp({ env, isShuttingDown, checkDatabase }: Dependencies) {
+export function createApp({ env, isShuttingDown, checkDatabase, auth }: Dependencies) {
   let lastDatabaseFailure = ''
   let lastDatabaseFailureAt = 0
   const app = express()
@@ -46,12 +49,13 @@ export function createApp({ env, isShuttingDown, checkDatabase }: Dependencies) 
       if (env.CORS_ORIGINS.includes(origin)) { callback(null, true); return }
       callback(new HttpError(403, 'Origin is not allowed'))
     },
-    methods: ['GET', 'HEAD', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
     maxAge: 600,
   }))
   app.use(express.json({ limit: '16kb' }))
+  app.use('/api/v1/auth',authRoutes(auth))
   app.get('/health/live', (_request, response) => {
     response.set('Cache-Control', 'no-store').status(200).json({ status: 'alive' })
   })

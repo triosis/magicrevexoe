@@ -1,5 +1,12 @@
 # Backend foundation
 
+Task 05 adds authentication and tenant authorization; see
+[Auth API](docs/auth-api.md) and [security report](docs/auth-security-report.md).
+Authentication requires an operator-provided signing key and schema version
+000063. No production environment was changed. MFA and the recovery frontend
+remain unimplemented. Historical foundation notes below describe the original
+health subsystem; current auth routes are documented separately.
+
 Requires Node.js 24. The frontend and backend are independent npm packages with separate lockfiles. Install the backend with `npm ci --prefix backend`; this also compiles it through its prepare script. Install the frontend separately with `npm ci` at the repository root.
 
 ## Local setup

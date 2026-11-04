@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=1) AS satisfied FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='auth_sessions' AND COLUMN_NAME='auth_version' AND COLUMN_TYPE='int(10) unsigned' AND IS_NULLABLE='NO' AND COLUMN_DEFAULT='0'
