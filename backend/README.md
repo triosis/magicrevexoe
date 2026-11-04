@@ -1,5 +1,10 @@
 # Backend foundation
 
+Task 06 adds [tenant/account APIs](docs/tenants-api.md) and a complete
+[tenant security report](docs/tenants-security-report.md). Provisioning/invitations
+require configured and successfully verified delivery; no operational SMTP claim
+is made from local tests. No migration or frontend change is needed for Task 06.
+
 Task 05 adds authentication and tenant authorization; see
 [Auth API](docs/auth-api.md) and [security report](docs/auth-security-report.md).
 Authentication requires an operator-provided signing key and schema version

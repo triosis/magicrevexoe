@@ -1,5 +1,11 @@
 # Task 05 authentication and authorization security report
 
+Task 06 update: the historical invitation/provisioning API gap below is now
+addressed by tenants-api.md and tenants-security-report.md. Transaction-aware
+authorization helpers and verified invitation delivery reuse this foundation.
+MFA, frontend and production deployment limitations remain. Task 05 test counts
+below are historical; Task 06 records the current complete regression run.
+
 Implemented/tested locally, 2026-11-04. No Hostinger connection, production
 migration, credentials/configuration change, administrator seed or frontend change.
 

@@ -5,12 +5,15 @@ import type { Env } from './config/env.js'
 import { errorHandler, HttpError } from './middleware/error-handler.js'
 import { authRoutes } from './auth/routes.js'
 import type { AuthService } from './auth/service.js'
+import { tenantRoutes } from './tenants/routes.js'
+import type { TenantService } from './tenants/service.js'
 
 type Dependencies = {
   env: Env
   isShuttingDown: () => boolean
   checkDatabase: () => Promise<void>
   auth?: AuthService | undefined
+  tenants?: TenantService | undefined
 }
 
 // Only emit known driver codes and fixed descriptions. Driver messages can
@@ -35,7 +38,7 @@ export function safeDatabaseFailure(error: unknown): string {
   return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
 }
 
-export function createApp({ env, isShuttingDown, checkDatabase, auth }: Dependencies) {
+export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants }: Dependencies) {
   let lastDatabaseFailure = ''
   let lastDatabaseFailureAt = 0
   const app = express()
@@ -49,13 +52,14 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth }: Dependen
       if (env.CORS_ORIGINS.includes(origin)) { callback(null, true); return }
       callback(new HttpError(403, 'Origin is not allowed'))
     },
-    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
     maxAge: 600,
   }))
   app.use(express.json({ limit: '16kb' }))
   app.use('/api/v1/auth',authRoutes(auth))
+  app.use('/api/v1/tenants',tenantRoutes(auth,tenants))
   app.get('/health/live', (_request, response) => {
     response.set('Cache-Control', 'no-store').status(200).json({ status: 'alive' })
   })

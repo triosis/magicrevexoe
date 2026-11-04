@@ -1,5 +1,11 @@
 # Authentication API v1
 
+Task 06 now implements invitation issuance and account provisioning in
+[tenants-api.md](tenants-api.md). The Task 05 scope notes below are historical:
+those tenant endpoints reuse accept-invitation and the same hashed-token schema.
+SMTP verification is required before tenant invitation writes, and CORS also
+permits PATCH. No bootstrap, member-demotion API or MFA was added.
+
 Task 05 implementation, 2026-11-04. API prefix: /api/v1/auth. No frontend or
 production configuration/deployment was changed. No business CRUD endpoints exist.
 

@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from 'jose'
 import { z } from 'zod'
 import { HttpError } from '../middleware/error-handler.js'
 
-export const identifier = z.string().regex(/^[1-9][0-9]{0,19}$/).refine(value => BigInt(value) <= 18446744073709551615n)
+export const identifier = z.string().regex(/^[1-9][0-9]{0,19}$/).refine(value => /^[1-9][0-9]{0,19}$/.test(value) && BigInt(value) <= 18446744073709551615n)
 const claims = z.object({ sub: identifier, sid: identifier, av: z.number().int().positive(), mid: identifier.optional(), amr: z.tuple([z.literal('pwd')]) })
 export type Identity = z.infer<typeof claims>
 export function opaqueToken(): string { return randomBytes(32).toString('base64url') }

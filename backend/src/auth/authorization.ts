@@ -37,11 +37,11 @@ export class Authorization {
     if (member.kind !== 'platform' || member.roleCode !== 'super_admin') denied()
     this.requirePermission(member, permission)
   }
-  async tenant(member: Membership, target: string, permission: string, merchantOnly = false): Promise<void> {
+  async tenant(member: Membership, target: string, permission: string, merchantOnly = false, db: Database = this.pool): Promise<void> {
     // Platform power must be invoked through the separate audited platform path.
     if (member.kind === 'platform') denied()
     this.requirePermission(member, permission)
-    const chain = await this.ancestors(target)
+    const chain = await this.ancestors(target,db)
     if (merchantOnly && chain[0]!.kind !== 'merchant') denied()
     if (!chain.some(row => row.id === member.tenantId)) denied()
     if (member.kind === 'merchant' && target !== member.tenantId) denied()
@@ -50,23 +50,23 @@ export class Authorization {
     this.platform(member, permission)
     await this.ancestors(target)
   }
-  async provision(member: Membership, parent: string, child: Kind): Promise<void> {
-    const chain = await this.ancestors(parent)
+  async provision(member: Membership, parent: string, child: Kind, db: Database = this.pool): Promise<void> {
+    const chain = await this.ancestors(parent,db)
     if (!validEdge.has(`${chain[0]!.kind}/${child}`)) denied()
     if (member.kind === 'platform') { this.platform(member); return }
     if (member.kind === 'merchant' || child === 'reseller' || child === 'platform') denied()
-    await this.tenant(member, parent, child === 'sub_reseller' ? 'sub_reseller.create' : 'merchant.create')
+    await this.tenant(member, parent, child === 'sub_reseller' ? 'sub_reseller.create' : 'merchant.create',false,db)
     if (member.kind === 'sub_reseller' && child !== 'merchant') denied()
   }
-  async assignRole(member: Membership, target: string, roleId: string): Promise<void> {
-    const chain = await this.ancestors(target)
-    const role = (await select(this.pool, 'SELECT code,tenant_kind FROM roles WHERE id=?',[roleId]))[0]
+  async assignRole(member: Membership, target: string, roleId: string, db: Database = this.pool): Promise<void> {
+    const chain = await this.ancestors(target,db)
+    const role = (await select(db, 'SELECT code,tenant_kind FROM roles WHERE id=?',[roleId]))[0]
     if (!role || role.tenant_kind !== chain[0]!.kind) denied()
     if (member.kind === 'platform') { this.platform(member); return }
-    await this.tenant(member,target,'membership.manage')
+    await this.tenant(member,target,'membership.manage',false,db)
     const allowed = member.kind === 'reseller' ? ['sub_reseller_admin','merchant_admin','merchant_staff'] : ['merchant_admin','merchant_staff']
     if (!allowed.includes(role.code)) denied()
-    const grants=await select(this.pool,`SELECT p.code FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id=?`,[roleId])
+    const grants=await select(db,`SELECT p.code FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id=?`,[roleId])
     if (grants.some(grant=>!member.permissions.includes(grant.code))) denied()
   }
 }

@@ -6,6 +6,7 @@ import { select, transaction } from './database.js'
 import { Authorization, type Principal, type Membership } from './authorization.js'
 import { AccessTokens, tokenDigest, opaqueToken } from './tokens.js'
 import { hashPassword, verifyPassword } from './passwords.js'
+import type { InvitationDelivery } from '../tenants/delivery.js'
 
 type User = RowDataPacket & { id: string; email: string; password_hash: string | null; status: string; auth_version: number; email_verified_at: Date | null }
 type Session = RowDataPacket & { id: string; user_id: string; family_id: Buffer; auth_version: number; expires_at: Date; revoked_at: Date | null; valid: number }
@@ -16,9 +17,13 @@ export const normalizeEmail = (email: string): string => email.trim().toLowerCas
 export class AuthService {
   readonly authorization: Authorization
   private readonly tokens: AccessTokens
-  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery) {
+  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>) {
     this.tokens = new AccessTokens(key)
     this.authorization = new Authorization(pool)
+  }
+  invitationDelivery(): InvitationDelivery | undefined {
+    if (!this.deliver || !this.verifyDelivery) return undefined
+    return {kind:'smtp',verify:this.verifyDelivery,send:this.deliver}
   }
   private async lockedUser(connection: PoolConnection, userId: string): Promise<User> {
     const user = (await select<User>(connection, 'SELECT * FROM users WHERE id=? FOR UPDATE', [userId]))[0]

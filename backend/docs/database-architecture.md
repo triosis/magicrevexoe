@@ -1,12 +1,19 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 06 update: tenant/account management and invitation APIs are implemented
+locally using the existing schema; no new migration or weakened constraint.
+See tenants-api.md / tenants-security-report.md. Active managers can inspect
+suspended descendant accounts for restoration while authentication/business
+access through suspended ancestry remains denied. Production remains untouched.
+
 Task 05 update: authentication and authorization services/routes now use this
 schema; additive version 000063 stores the session authentication-version
 snapshot. No earlier migration was edited. See auth-api.md and
 auth-security-report.md for actual controls, tests and unimplemented MFA.
 
 Status: Phase 1 schema implemented and locally verified in Task 04, 2026-11-04.
-Production rollout and API implementation remain unapproved and unperformed.
+Production rollout remains unapproved and unperformed. API implementation status
+is updated in the task notes above; the Task 04 schema audit below is historical.
 
 Task 04 implements 23 business tables, 35 protective/validation triggers and four
 catalog/role seed statements, using 62 new ordered migration files with matching

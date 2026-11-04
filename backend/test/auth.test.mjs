@@ -27,6 +27,7 @@ test('access JWTs enforce signature, issuer, audience, expiry and password-only 
  const opaque=opaqueToken();assert.equal(opaque.length,43);assert.equal(tokenDigest(opaque).length,32)
  assert.equal(identifier.safeParse('18446744073709551616').success,false)
  assert.equal(identifier.safeParse('9007199254740993').success,true)
+ assert.equal(identifier.safeParse('1 OR 1=1').success,false)
 })
 
 test('rate limiting bounds memory, expires windows and fails closed at capacity',()=>{
