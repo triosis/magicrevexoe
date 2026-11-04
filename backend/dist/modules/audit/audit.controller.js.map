@@ -1,1 +1,0 @@
-{"version":3,"file":"audit.controller.js","sourceRoot":"","sources":["../../../src/modules/audit/audit.controller.ts"],"names":[],"mappings":";;AAGA,oCAMC;AARD,yDAAmD;AAE5C,KAAK,UAAU,YAAY,CAChC,OAAgB,EAChB,QAAkB;IAElB,MAAM,IAAI,GAAG,MAAM,IAAA,gCAAa,EAAC,OAAO,CAAC,MAAO,EAAE,GAAG,CAAC,CAAC;IACvD,QAAQ,CAAC,IAAI,CAAC,EAAE,OAAO,EAAE,IAAI,EAAE,IAAI,EAAE,IAAI,EAAE,CAAC,CAAC;AAC/C,CAAC"}
