@@ -3,10 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "workspaces": ["backend"],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prepare": "npm run build",
+    "start": "node server.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "dev:api": "npm run dev --workspace backend",
@@ -15,6 +20,7 @@
     "start:api": "npm run start --workspace backend"
   },
   "dependencies": {
+    "express": "^5.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
