@@ -1,0 +1,23 @@
+CREATE TABLE branches (
+id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+public_id BINARY(16) NOT NULL,
+tenant_id BIGINT UNSIGNED NOT NULL,
+tenant_kind ENUM('platform','reseller','sub_reseller','merchant') NOT NULL DEFAULT 'merchant',
+industry_channel_id BIGINT UNSIGNED NOT NULL,
+code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+name VARCHAR(160) NOT NULL,
+timezone VARCHAR(64) NOT NULL,
+address VARCHAR(500) NULL,
+status ENUM('active','archived') NOT NULL DEFAULT 'active',
+lock_version INT UNSIGNED NOT NULL DEFAULT 1,
+UNIQUE KEY uq_branch_public (public_id),
+UNIQUE KEY uq_branch_code (tenant_id,code),
+UNIQUE KEY uq_branch_owner (tenant_id,id),
+UNIQUE KEY uq_branch_channel (tenant_id,id,industry_channel_id),
+KEY ix_branch_status (tenant_id,status,id),
+CONSTRAINT fk_branch_tenant FOREIGN KEY (tenant_id,tenant_kind) REFERENCES tenants(id,kind),
+CONSTRAINT fk_branch_channel FOREIGN KEY (tenant_id,industry_channel_id) REFERENCES tenants(id,industry_channel_id),
+CONSTRAINT ck_branch_merchant CHECK (tenant_kind='merchant'),
+created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci

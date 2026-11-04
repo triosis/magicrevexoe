@@ -1,0 +1,20 @@
+CREATE TABLE users (
+id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+public_id BINARY(16) NOT NULL,
+email VARCHAR(254) NOT NULL,
+email_key VARBINARY(254) NOT NULL,
+display_name VARCHAR(120) NOT NULL,
+password_hash VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NULL,
+status ENUM('invited','active','locked','disabled') NOT NULL DEFAULT 'invited',
+email_verified_at DATETIME(6) NULL,
+password_changed_at DATETIME(6) NULL,
+auth_version INT UNSIGNED NOT NULL DEFAULT 1,
+last_login_at DATETIME(6) NULL,
+UNIQUE KEY uq_user_public (public_id),
+UNIQUE KEY uq_user_email (email_key),
+KEY ix_user_status (status,id),
+CONSTRAINT ck_user_password CHECK ((status IN ('invited','disabled') OR password_hash IS NOT NULL) AND (password_hash IS NULL OR password_hash REGEXP '^[$]argon2id[$]v=19[$]m=[0-9]+,t=[0-9]+,p=[0-9]+[$][A-Za-z0-9+/]+[$][A-Za-z0-9+/]+$')),
+CONSTRAINT ck_user_auth_version CHECK (auth_version>0),
+created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci

@@ -1,0 +1,10 @@
+CREATE TABLE roles (
+id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+code VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+tenant_kind ENUM('platform','reseller','sub_reseller','merchant') NOT NULL,
+name VARCHAR(100) NOT NULL,
+UNIQUE KEY uq_role_code (code),
+UNIQUE KEY uq_role_kind (id,tenant_kind),
+created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci

@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='channel_versions' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='channel_versions')=10
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='channel_versions' AND COLUMN_NAME IN ('id','industry_channel_id','version','status','display_name','public_copy','feedback_labels','published_at','created_at','updated_at'))=10
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='channel_versions' AND CONSTRAINT_NAME IN ('uq_channel_version','uq_channel_version_owner','fk_version_channel','ck_channel_version_number','ck_channel_version_publish','ck_channel_parallel_copy','ck_channel_feedback_labels'))=7) AS satisfied

@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='review_destinations' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='review_destinations')=10
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='review_destinations' AND COLUMN_NAME IN ('id','tenant_id','branch_id','provider','place_id','review_url','status','lock_version','created_at','updated_at'))=10
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='review_destinations' AND CONSTRAINT_NAME IN ('uq_destination_provider','uq_destination_owner','fk_destination_branch','ck_destination_url'))=4) AS satisfied

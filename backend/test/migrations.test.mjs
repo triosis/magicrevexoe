@@ -31,12 +31,13 @@ test('CLI refuses remote targets before creating a pool and never prints supplie
   assert.equal(result.stderr.trim(),'INVALID_LOCAL_MIGRATION_CONFIGURATION')
 })
 
-test('checked-in manifest contains only migration tracking infrastructure', async () => {
+test('checked-in manifest has bootstrap followed by ordered verified schema migrations', async () => {
   const migrations=await loadMigrations(new URL('../migrations/',import.meta.url))
-  assert.equal(migrations.length,1)
+  assert.ok(migrations.length>1)
   assert.equal(migrations[0].version,'000000')
   assert.equal(migrations[0].name,'schema_migrations')
   assert.equal(migrations[0].checksum.length,32)
+  assert.ok(migrations.slice(1).every(file=>file.verify && file.checksum.length===32))
 })
 
 test('history fails closed on checksum, order and incomplete execution', async () => {
@@ -46,7 +47,7 @@ test('history fails closed on checksum, order and incomplete execution', async (
   for(const patch of [{status:'failed'},{status:'applying'},{checksum:Buffer.alloc(32)},{version:'000002'},{name:'other'}]) {
     assert.throws(()=>validateHistory(files,[{...row,...patch}]))
   }
-  assert.throws(()=>validateHistory(files,[row,{...row,version:'000001'}]))
+  assert.throws(()=>validateHistory(files,[row,{...row,version:'999999'}]))
 })
 
 test('loader rejects gaps, duplicate versions, CRLF, missing verification; hashes postconditions',async()=>{

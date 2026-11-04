@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=1) AS satisfied FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME='protect_funnel_configurations_published' AND EVENT_OBJECT_TABLE='funnel_configurations' AND ACTION_TIMING='BEFORE' AND EVENT_MANIPULATION='UPDATE'

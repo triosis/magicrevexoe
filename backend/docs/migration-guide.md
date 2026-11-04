@@ -1,8 +1,10 @@
 # MariaDB migration foundation
 
-Implemented for Task 03; no business schema migrations are included. Hostinger
-production was not contacted. Existing server routes, startup, pool configuration,
-install/prepare behavior and readiness remain unchanged.
+Task 03 runner plus Task 04 Phase 1 schema, locally verified on MariaDB 11.8.9.
+Hostinger production was not contacted. No API/frontend functionality changed.
+The existing pool now enables supportBigNumbers/bigNumberStrings so BIGINT IDs
+round-trip as strings; the health routes and install/start lifecycle stay unchanged.
+Full file/dependency inventory and test results: [schema-implementation-report.md](schema-implementation-report.md).
 
 ## Supported target and safety boundary
 
@@ -35,6 +37,7 @@ npm --prefix backend run migrate:status
 npm --prefix backend run migrate:up
 npm --prefix backend run test:migrations
 npm --prefix backend run test:migrations:integration
+npm --prefix backend run test:schema:integration
 ```
 
 Before status/up, supply MIGRATION_DB_HOST, MIGRATION_DB_PORT,
@@ -53,17 +56,48 @@ with a fixed error code, not a raw driver message.
 
 ## Files and metadata bootstrap
 
-`backend/migrations/000000_schema_migrations.sql` is the only checked-in migration.
-It creates only schema_migrations, an InnoDB tracking table. It stores version,
+`backend/migrations/000000_schema_migrations.sql` remains unchanged and creates
+schema_migrations, an InnoDB tracking table. It stores version,
 name, SHA-256 checksum, applying/applied/failed status, timestamps, elapsed time,
-last verified step, safe failure code and a random runner ID. No application,
-tenant, authentication or billing tables are created.
+last verified step, safe failure code and a random runner ID.
+
+Task 04 adds 000001 through 000062, each with matching .verify.sql. There are
+23 business tables, 35 triggers and four safe catalog/role seed statements.
+The schema includes tenants, identity/RBAC, hashed sessions/tokens, channels,
+merchant resources, structured feedback, subscriptions/usage and audit history.
+No platform tenant, users, admin password, plan prices, live review URLs or
+authentication tokens are seeded. No business API implementation is included.
 
 The ledger bootstrap runs under the exclusive lock, only on an empty schema.
 If other tables exist without a ledger, execution stops for explicit inventory
 and baseline review. Existing ledger columns/defaults/index/collation/engine
 and unexpected triggers are checked; incompatible metadata is rejected.
-Future business migration files are not part of this task and need approval.
+Task 04 approves these schema files locally only. Do not apply them to an existing
+live schema: inventory/mapping, backup restore and separate approval are still needed.
+
+### Ordering and dependencies
+
+- 000001–000009: channels, typed tenants, users, role/permission catalogs,
+  memberships, sessions and tokens. Channels precede tenant channel ownership;
+  memberships precede scoped invite tokens.
+- 000010–000017: channel versions, branches, destinations, funnels, links, QR,
+  structured feedback and status events, each after its referenced parents.
+- 000018–000023: plans/limits, subscriptions, usage records/counters and audit.
+- 000024–000055: owner/publication/append-only/token/publication guard triggers.
+- 000056–000059: three channel catalogs, five roles, sixteen permissions and
+  fifty-five explicit role-permission grants.
+- 000060–000062: complete-plan publication/draft-insert/subscription guards.
+
+The complete ordered manifest lists every SQL and verification file. Table
+postconditions check InnoDB/collation, expected column set and named constraints;
+trigger checks verify table/event/timing; seed checks verify exact definitions
+and catalog/grant counts. Failure blocks the runner; no IF NOT EXISTS hides it.
+
+Seeds use INSERT SELECT WHERE NOT EXISTS on stable unique codes/composite grant
+keys. Replaying the same seed is harmless. A conflicting existing definition is
+preserved and fails its postcondition; it is never overwritten or silently accepted.
+Apply all versions before exposing any business services, since protection triggers
+are later versions than the tables. No application runs against a partially applied schema.
 
 There is an unavoidable bootstrap boundary: CREATE TABLE implicitly commits
 before its own history row can be written. A crash after that CREATE leaves an
@@ -96,7 +130,7 @@ runner verifies ownership before each next migration, releases in finally and
 destroys the session. It never reconnects and continues after losing the session.
 Independent database servers/proxies without session affinity are unsupported.
 
-Each future migration first persists applying, executes one reviewed statement,
+Each non-bootstrap migration first persists applying, executes one reviewed statement,
 checks its verification SELECT, then records applied. Execution/verification
 failure records failed when possible. Connection loss may leave applying.
 Either state blocks all later execution. A successful DDL statement followed by
@@ -144,7 +178,12 @@ Tests cover version gates, file ordering/encoding/checksums, status without
 writes, bootstrap/idempotency, lock exclusion across commit, existing-schema
 refusal, incomplete bootstrap, committed DDL with failed postcondition, blocked
 retry, explicit forward reconciliation, DML rollback/savepoints, ledger drift
-and rejection of multiple SQL statements. Windows harness support is explicit;
+and rejection of multiple SQL statements. The schema suite separately exercises
+all approved hierarchy edges, forbidden edges/NULL cases, cross-tenant FKs,
+uniqueness, CHECKs, transaction rollback, publication immutability including
+case-only edits, safe seed replay/conflict detection and exact BIGINT round trips.
+DELETE guard definitions are inspected without executing destructive SQL.
+Windows harness support is explicit;
 Linux/CI container orchestration is not implemented or claimed in this task.
 
 ## Outstanding production gates
@@ -153,5 +192,6 @@ User-reported Hostinger facts: MariaDB 11.8.9, InnoDB, utf8mb4_unicode_ci,
 transactions/savepoints and ALL PRIVILEGES on the project database. This task
 did not independently inspect Hostinger. ALL PRIVILEGES does not satisfy the
 future append-only runtime design. Separate credentials, effective table grants,
-business CHECK/FK/generated-index/trigger tests, schema inventory and restore
-rehearsal remain required. The CLI intentionally has no Hostinger execution path.
+Hostinger-specific trigger/grant checks, schema inventory and restore rehearsal
+remain required. Local schema CHECK/FK/generated-index/trigger tests now pass.
+The CLI intentionally has no Hostinger execution path.

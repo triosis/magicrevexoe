@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usage_records' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usage_records')=10
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usage_records' AND COLUMN_NAME IN ('id','tenant_id','subscription_id','metric','quantity','period_start','period_end','source_event_key','occurred_at','created_at'))=10
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='usage_records' AND CONSTRAINT_NAME IN ('uq_usage_event','fk_usage_subscription','ck_usage_quantity','ck_usage_period'))=4) AS satisfied

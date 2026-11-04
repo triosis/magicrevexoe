@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='subscriptions' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='subscriptions')=14
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='subscriptions' AND COLUMN_NAME IN ('id','tenant_id','tenant_kind','plan_id','status','starts_at','ends_at','current_period_start','current_period_end','cancel_at_period_end','current_slot','lock_version','created_at','updated_at'))=14
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='subscriptions' AND CONSTRAINT_NAME IN ('uq_subscription_owner','uq_subscription_current','fk_subscription_tenant','fk_subscription_plan','ck_subscription_merchant','ck_subscription_period','ck_subscription_cancel'))=7) AS satisfied

@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches')=13
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches' AND COLUMN_NAME IN ('id','public_id','tenant_id','tenant_kind','industry_channel_id','code','name','timezone','address','status','lock_version','created_at','updated_at'))=13
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='branches' AND CONSTRAINT_NAME IN ('uq_branch_public','uq_branch_code','uq_branch_owner','uq_branch_channel','fk_branch_tenant','fk_branch_channel','ck_branch_merchant'))=7) AS satisfied

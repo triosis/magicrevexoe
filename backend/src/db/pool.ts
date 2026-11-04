@@ -15,6 +15,8 @@ export function createDatabasePool(env: Env) {
     charset: 'utf8mb4',
     timezone: 'Z',
     multipleStatements: false,
+    supportBigNumbers: true,
+    bigNumberStrings: true,
   })
 }
 

@@ -1,0 +1,4 @@
+CREATE TRIGGER protect_channel_versions_published BEFORE UPDATE ON channel_versions FOR EACH ROW
+BEGIN
+IF OLD.status IN ('published','retired') AND (NOT (BINARY OLD.id<=>BINARY NEW.id) OR NOT (BINARY OLD.industry_channel_id<=>BINARY NEW.industry_channel_id) OR NOT (BINARY OLD.version<=>BINARY NEW.version) OR NOT (BINARY OLD.display_name<=>BINARY NEW.display_name) OR NOT (BINARY OLD.public_copy<=>BINARY NEW.public_copy) OR NOT (BINARY OLD.feedback_labels<=>BINARY NEW.feedback_labels) OR NOT (BINARY OLD.published_at<=>BINARY NEW.published_at) OR NOT (BINARY OLD.created_at<=>BINARY NEW.created_at) OR (OLD.status='published' AND NEW.status NOT IN ('published','retired')) OR (OLD.status='retired' AND NEW.status<>'retired')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Published version is immutable'; END IF;
+END

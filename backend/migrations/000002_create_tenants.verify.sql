@@ -1,0 +1,4 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tenants' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tenants')=12
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tenants' AND COLUMN_NAME IN ('id','public_id','kind','parent_id','parent_kind','name','status','industry_channel_id','platform_slot','lock_version','created_at','updated_at'))=12
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tenants' AND CONSTRAINT_NAME IN ('uq_tenant_public','uq_tenant_kind','uq_tenant_channel','uq_platform_slot','fk_tenant_parent','fk_tenant_channel','ck_tenant_hierarchy'))=7) AS satisfied

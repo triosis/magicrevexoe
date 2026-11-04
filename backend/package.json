@@ -16,6 +16,7 @@
     "migrate:up": "npm run build && node dist/migrations/cli.js up",
     "test:migrations": "npm run build && node --test test/migrations.test.mjs",
     "test:migrations:integration": "npm run build && node --test test/migrations.integration.mjs",
+    "test:schema:integration": "npm run build && node --test test/schema.integration.mjs",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {

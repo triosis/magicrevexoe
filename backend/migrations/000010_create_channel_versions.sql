@@ -1,0 +1,20 @@
+CREATE TABLE channel_versions (
+id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+industry_channel_id BIGINT UNSIGNED NOT NULL,
+version INT UNSIGNED NOT NULL,
+status ENUM('draft','published','retired') NOT NULL DEFAULT 'draft',
+display_name VARCHAR(120) NOT NULL,
+public_copy JSON NOT NULL,
+feedback_labels JSON NOT NULL,
+published_at DATETIME(6) NULL,
+UNIQUE KEY uq_channel_version (industry_channel_id,version),
+UNIQUE KEY uq_channel_version_owner (industry_channel_id,id),
+KEY ix_channel_version_status (industry_channel_id,status,version),
+CONSTRAINT fk_version_channel FOREIGN KEY (industry_channel_id) REFERENCES industry_channels(id),
+CONSTRAINT ck_channel_version_number CHECK (version>0),
+CONSTRAINT ck_channel_version_publish CHECK ((status='draft' AND published_at IS NULL) OR (status IN ('published','retired') AND published_at IS NOT NULL)),
+CONSTRAINT ck_channel_parallel_copy CHECK (COALESCE(JSON_TYPE(public_copy)='OBJECT' AND JSON_LENGTH(public_copy)=3 AND JSON_CONTAINS_PATH(public_copy,'all','$.title','$.google_label','$.private_label')=1 AND JSON_TYPE(JSON_EXTRACT(public_copy,'$.title'))='STRING' AND JSON_UNQUOTE(JSON_EXTRACT(public_copy,'$.google_label'))='Leave a Google review' AND JSON_UNQUOTE(JSON_EXTRACT(public_copy,'$.private_label'))='Share private feedback',0)),
+CONSTRAINT ck_channel_feedback_labels CHECK (COALESCE(JSON_TYPE(feedback_labels)='OBJECT' AND JSON_LENGTH(feedback_labels)=3 AND JSON_CONTAINS_PATH(feedback_labels,'all','$.service','$.cleanliness','$.waiting_time')=1 AND JSON_UNQUOTE(JSON_EXTRACT(feedback_labels,'$.service'))='Service experience' AND JSON_UNQUOTE(JSON_EXTRACT(feedback_labels,'$.cleanliness'))='Cleanliness' AND JSON_UNQUOTE(JSON_EXTRACT(feedback_labels,'$.waiting_time'))='Waiting time',0)),
+created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci

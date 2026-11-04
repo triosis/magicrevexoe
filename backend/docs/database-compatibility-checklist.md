@@ -1,10 +1,27 @@
 # MagicReview AI — Hostinger database compatibility checklist
 
-Status: PARTIALLY VERIFIED / Task 03 migration foundation implemented, 2026-11-04.
+Status: LOCAL SCHEMA VERIFIED / Task 04, 2026-11-04. Production permissions pending.
 No Hostinger production connection or modification occurred. Task 03 authorized
 disposable local MariaDB tests and only migration infrastructure, not business DDL.
 The metadata SQL and runner now exist; the inventory SQL below remains unexecuted
 against Hostinger. All production capability tests still need separate approval.
+
+## Task 04 evidence update
+
+All 63 versions (unchanged bootstrap plus 62 new schema/guard/seed statements)
+apply on a fresh disposable MariaDB 11.8.9 instance. It creates 24 InnoDB tables
+including tracking metadata, utf8mb4_unicode_ci, and 35 triggers. Local tests
+prove hierarchy/NULL rejection, composite ownership FKs, generated uniqueness,
+rating/period/hash-format/JSON CHECKs, exact published-content immutability,
+append-only UPDATE rejection, seed replay/conflict detection and BIGINT strings.
+DELETE guards were verified in metadata; no destructive SQL was executed.
+The redundant self-ID CHECK was replaced by the already-enforced typed parent
+CHECK + composite FK, because MariaDB forbids AUTO_INCREMENT references in CHECK.
+
+No unresolved local MariaDB DDL compatibility issue remains in this schema.
+Hostinger runtime/migration grants and deployment prerequisites remain unverified;
+local root tests do not prove production least privilege. No production access occurred.
+Full test report and file inventory: [schema-implementation-report.md](schema-implementation-report.md).
 
 ## Task 03 evidence update
 
