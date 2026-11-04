@@ -19,6 +19,7 @@
     "test:schema:integration": "npm run build && node --test test/schema.integration.mjs",
     "test:auth:integration": "npm run build && node --test test/auth.integration.mjs",
     "test:tenants:integration": "npm run build && node --test test/tenants.integration.mjs",
+    "test:business:integration": "npm run build && node --test test/business.integration.mjs",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {

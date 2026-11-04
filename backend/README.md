@@ -34,7 +34,7 @@ The backend loads only `backend/.env`, resolved relative to its own modules in b
 | DB_NAME / DB_USER / DB_PASSWORD | Required database credentials; example placeholders are rejected |
 | DB_CONNECTION_LIMIT | Pool size, 1–50; defaults to 5. Match the hosting database allowance. |
 
-CORS allows only GET/HEAD/OPTIONS and Content-Type; credentials are disabled. Disallowed browser origins receive 403. Requests without Origin remain valid for health probes and server-to-server access; CORS is not authentication.
+CORS allows GET/HEAD/POST/PATCH/OPTIONS and Content-Type/Authorization; credentials are disabled. Disallowed browser origins receive 403. Requests without Origin remain valid for health probes and server-to-server access; CORS is not authentication.
 
 ## Health and lifecycle
 
@@ -62,4 +62,18 @@ Backend tests compile first and use Node's built-in test runner. They exercise H
 
 Confirm Hostinger's Node 24 runtime, monorepo build root, compiled entrypoint (`backend/dist/server.js` relative to repository root), environment-variable controls, required bind address/port, HTTPS/API domain, and log access. Confirm the actual MariaDB/MySQL version, database network location, TLS requirements, allowed connections, and backups. TLS must be configured with a verified CA if the database requires a remote TLS connection; this local foundation does not assume a remote database transport configuration.
 
-Keep the current frontend deployment unchanged. `npm run build` still builds only the frontend; `npm run build:api` builds only the backend. Install dev dependencies during backend builds so the compiler is available; run compiled JavaScript in production. No PM2, background workers, authentication, migrations, or business routes are included.
+Keep the current frontend deployment unchanged. `npm run build` still builds only the frontend; `npm run build:api` builds only the backend. Install dev dependencies during backend builds so the compiler is available; run compiled JavaScript in production. No PM2 or background worker is included.
+
+## Implemented APIs and explicit local migration commands
+
+Authentication, tenant provisioning and merchant business management now use the
+existing schema. Read [auth-api.md](docs/auth-api.md),
+[tenants-api.md](docs/tenants-api.md), [business-api.md](docs/business-api.md) and
+[migration-guide.md](docs/migration-guide.md) before configuring or using them.
+Migrations never run during install, prepare, startup or health checks. No
+production deployment is implied by the local implementation reports.
+
+Run `npm --prefix backend run test:business:integration` with MARIADB_TEST_BIN
+pointing to local MariaDB 11.8.9 binaries to test business APIs on a disposable
+database. See [business-implementation-report.md](docs/business-implementation-report.md)
+for the complete regression results and remaining deployment gates.

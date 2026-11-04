@@ -1,5 +1,9 @@
 # Authentication API v1
 
+Task 07 adds merchant, channel, branch and destination APIs documented in
+[business-api.md](business-api.md). Historical Task 05 statements below about
+absent business endpoints describe that earlier task, not the current API.
+
 Task 06 now implements invitation issuance and account provisioning in
 [tenants-api.md](tenants-api.md). The Task 05 scope notes below are historical:
 those tenant endpoints reuse accept-invitation and the same hashed-token schema.

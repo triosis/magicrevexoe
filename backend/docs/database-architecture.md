@@ -1,5 +1,11 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 07 update: merchant profiles/onboarding, industry catalog and platform-only
+channel draft/publication APIs, branches and canonical Google destinations are
+implemented locally using the existing schema. See business-api.md and
+business-implementation-report.md for controls, 75 passing tests and remaining
+quota, Google verification, SMTP and production gates. No migration was added.
+
 Task 06 update: tenant/account management and invitation APIs are implemented
 locally using the existing schema; no new migration or weakened constraint.
 See tenants-api.md / tenants-security-report.md. Active managers can inspect

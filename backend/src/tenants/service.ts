@@ -7,21 +7,28 @@ import type { Membership,Principal,Kind } from '../auth/authorization.js'
 import { opaqueToken,tokenDigest } from '../auth/tokens.js'
 import type { InvitationDelivery } from './delivery.js'
 
-type Account = RowDataPacket & {id:string;kind:Kind;parent_id:string|null;status:string;lock_version:number;effective:number}
+export type Account = RowDataPacket & {id:string;kind:Kind;parent_id:string|null;status:string;lock_version:number;effective:number}
 export type InviteInput={email:string;displayName:string;roleCode?:string|undefined;resend?:boolean|undefined}
 export type CreateInput={parentId:string;kind:Exclude<Kind,'platform'>;name:string;industryChannelCode?:string|undefined;invitation:InviteInput}
 export type Page={afterId?:string|undefined;limit:number}
-type Actor={member:Membership;principal:Principal}
+export type TenantActor={member:Membership;principal:Principal}
+type Actor=TenantActor
 function denied():never{throw new HttpError(403,'Access denied')}
 const adminRole:Record<Kind,string>={platform:'super_admin',reseller:'reseller_admin',sub_reseller:'sub_reseller_admin',merchant:'merchant_admin'}
-const scope=`WITH RECURSIVE scope AS (
+export const tenantScopeSQL=`WITH RECURSIVE scope AS (
  SELECT id,0 AS depth,(status='active') AS effective FROM tenants WHERE id=?
  UNION ALL SELECT t.id,s.depth+1,(s.effective AND t.status='active') FROM tenants t JOIN scope s ON t.parent_id=s.id WHERE s.depth<3
 )`
+const scope=tenantScopeSQL
 const fields='t.id,t.public_id,t.kind,t.parent_id,t.name,t.status,t.industry_channel_id,t.lock_version,t.created_at,t.updated_at,s.effective'
 
 export class TenantService {
  constructor(private readonly pool:Pool,private readonly auth:AuthService,private readonly delivery?:InvitationDelivery){}
+ // Backend-only transaction primitives shared by merchant business services.
+ withActor<T>(principal:Principal,work:(db:PoolConnection,actor:TenantActor)=>Promise<T>,readOnly=false){return this.actor(principal,work,readOnly)}
+ authorizedAccount(db:PoolConnection,actor:TenantActor,id:string,permission='tenant.read'){return this.account(db,actor,id,permission)}
+ requirePermission(actor:TenantActor,permission:string){this.permission(actor,permission)}
+ auditChange(db:PoolConnection,actor:TenantActor,target:string,action:string,metadata:Record<string,string|boolean>,resourceType='tenant',resourceId=target){return this.audit(db,actor,target,action,metadata,resourceType,resourceId)}
  private async actor<T>(principal:Principal,work:(db:PoolConnection,actor:Actor)=>Promise<T>,readOnly=false):Promise<T>{
   // One root lock serializes hierarchy/membership writes for this MVP. Bounded
   // deadlock retries contain ONLY DB work; SMTP is always outside the transaction.

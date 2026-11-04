@@ -4,6 +4,7 @@ import { loadEnv } from './config/env.js'
 import { createDatabasePool, createReadinessCheck } from './db/pool.js'
 import { configuredAuth } from './auth/configuration.js'
 import { TenantService } from './tenants/service.js'
+import { BusinessService } from './business/service.js'
 
 async function main() {
   const env = loadEnv()
@@ -11,7 +12,8 @@ async function main() {
   let shuttingDown = false
   const auth=configuredAuth(pool,process.env)
   const tenants=auth?new TenantService(pool,auth,auth.invitationDelivery()):undefined
-  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants })
+  const business=auth&&tenants?new BusinessService(tenants,auth):undefined
+  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business })
   const server = createServer(app)
   server.requestTimeout = 30_000
   server.headersTimeout = 15_000
