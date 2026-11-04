@@ -1,6 +1,6 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
-Status: PROPOSED, awaiting approval. Audit date: 2026-11-04.
+Status: REVISED PROPOSAL (Task 02), awaiting implementation approval. Review date: 2026-11-04.
 This is a design document, not an implemented schema or migration.
 
 ## 1. Audit scope and evidence
@@ -50,10 +50,19 @@ Reuse the pool, configuration validator, app dependency injection, errors and
 test conventions. Add repositories/services/authentication around them; do not
 create another pool, health subsystem or independent environment loader.
 
+Task 02 searched repository source/document filenames and available text for an
+approved SOW/Scope of Work; no separate approved SOW artifact was found. The
+Task 02 instructions are the authority for the hierarchy and Phase 1 commercial
+corrections below. They are not a claim that an unavailable SOW was reviewed.
+Compatibility evidence and remaining verification gates are recorded in
+[database-compatibility-checklist.md](database-compatibility-checklist.md).
+
 ## 2. Design decisions and approval assumptions
 
-1. Four administrative levels: platform Super Admin -> Reseller -> Sub-Reseller
-   -> Merchant. Customer is an anonymous end user, never a tenant or membership.
+1. Four administrative types, with optional intermediary levels: Platform may
+   parent Reseller or Merchant; Reseller may parent Sub-Reseller or Merchant;
+   Sub-Reseller may parent Merchant only. Customer is an anonymous end user,
+   never a tenant or membership. All authorization follows actual parent links.
 2. Represent platform and all business accounts in one tenants table. Its type
    differentiates platform/reseller/sub_reseller/merchant. Do not duplicate common
    fields in resellers, sub_resellers and merchants tables. Those names become
@@ -62,20 +71,25 @@ create another pool, health subsystem or independent environment loader.
 3. Represent tenant relationships in tenants.parent_id, not a second independent
    relationship table or closure cache. Maximum depth is fixed; bounded traversal
    is simple and avoids stale descendant permissions.
-4. Proposed MVP permits only the exact parent-child chain, with no skipped levels
-   and no tenant reparenting. Direct platform-to-merchant sales and transferring
-   merchants require separate approval and a transactional design extension.
+4. Direct platform and direct reseller merchant onboarding are in Phase 1. Do not
+   invent intermediary tenants. Reparenting/transferring existing tenants remains
+   excluded pending an explicit transactional authorization/history design.
 5. Each merchant has one industry channel in MVP; its branches inherit that
    channel. Mixed-industry merchants are outside this proposal.
-6. Proposed initial billing owner is the merchant; reseller subscriptions,
-   commissions, reseller-funded merchant quotas, tax/invoices and payment-provider
-   integration are unresolved commercial requirements, not silently implemented.
+6. Confirmed Phase 1 commercial decision: subscriptions belong to merchants,
+   regardless of their parent. Reseller commissions, reseller wallets, payouts
+   and wholesale billing are explicitly deferred to a later phase. There are no
+   reseller balance or settlement tables in MVP. Plan prices/limits, tax/invoices
+   and payment-provider integration still need separate product decisions.
 7. Customers need no account or customer profile in Phase 1. Feedback is anonymous
    and structured. No patient identity, medical narrative, attachments, review
    text generation, AI replies or Google OAuth/import is included in this scope.
-8. Target InnoDB on a supported MySQL 8 release with enforced CHECK constraints
-   (at least 8.0.16). Verify actual Hostinger engine/version first; MariaDB is not
-   assumed compatible. No reliance on PostgreSQL row-level security.
+8. Database engine/version is UNVERIFIED. Require InnoDB and enforceable CHECK,
+   composite FK, trigger, grant, generated-column and transaction capabilities
+   proven on the actual supported Hostinger engine before selecting SQL dialect.
+   MySQL before 8.0.16 cannot satisfy this CHECK design; that boundary is not a
+   supported-version recommendation or evidence that Hostinger runs MySQL 8.
+   MariaDB needs its own compatibility results. No reliance on row-level security.
 
 ## 3. Physical conventions
 
@@ -133,6 +147,8 @@ industry_channels(id). CHECK requires exactly:
 | platform | NULL | NULL | NULL |
 | reseller | platform | NOT NULL | NULL |
 | sub_reseller | reseller | NOT NULL | NULL |
+| merchant | platform | NOT NULL | NOT NULL |
+| merchant | reseller | NOT NULL | NOT NULL |
 | merchant | sub_reseller | NOT NULL | NOT NULL |
 
 Reject all other combinations and explicitly require parent_id/parent_kind both
@@ -140,6 +156,15 @@ NULL or both non-NULL. CHECK must not accidentally pass on SQL UNKNOWN. Immutabl
 kind and parent fields, plus strictly increasing levels, prevent cycles; DB
 triggers reject changes to hierarchy/type and merchant industry after creation.
 Suspended ancestors suspend effective descendant access, without mass updates.
+
+The proposed CHECK is one explicit OR of the six rows above, with IS NULL/IS
+NOT NULL guards for every nullable column. For a merchant require parent_kind
+IN ('platform','reseller','sub_reseller'); platform and reseller children obey
+their exact rows. The composite parent FK proves parent_kind matches the actual
+parent row. A CHECK alone cannot inspect another row. Validate all 16 parent-kind
+combinations plus NULL cases in staging. No platform child, reseller-under-reseller,
+sub-reseller-under-sub-reseller or merchant parent is valid. Assign ranks 0/1/2/3
+only to detect impossible edges/cycles, never to infer ownership from depth.
 
 ### users — global administrative identities
 
@@ -233,7 +258,7 @@ must not silently gate existing published funnels. Catalog changes are audited.
 ### branches
 
 Columns: id; public_id BINARY(16); tenant_id BIGINT UNSIGNED;
-tenant_kind ENUM('merchant') DEFAULT 'merchant'; industry_channel_id BIGINT UNSIGNED;
+tenant_kind same ENUM as tenants.kind DEFAULT 'merchant'; industry_channel_id BIGINT UNSIGNED;
 code VARCHAR(64) ASCII binary; name VARCHAR(160); timezone VARCHAR(64);
 address VARCHAR(500)?; status ENUM('active','archived'); lock_version INT UNSIGNED;
 created_at; updated_at.
@@ -243,6 +268,8 @@ Keys: UQ(public_id), UQ(tenant_id,code), UQ(tenant_id,id),
 UQ(tenant_id,id,industry_channel_id), IX(tenant_id,status,id).
 Address is business location data, never customer/clinic visit details. Validate
 IANA timezone names in application code; UTC storage remains unchanged.
+CHECK tenant_kind = 'merchant'; use the full matching ENUM domain for the FK,
+not a distinct one-value ENUM. Verify this combination on the actual engine.
 
 ### review_destinations
 
@@ -359,7 +386,8 @@ Update status, status event and audit event in one transaction using lock_versio
 - A private-feedback quota may stop accepting additional private records with an
   honest message, but may not hide or block the public Google link. No pre-rating
   stage, threshold field, client-only compliance toggle or subscription override.
-- Clinic versions ask ONLY optional service-experience ratings above. Phase 1 has
+- Clinic versions ask ONLY service-experience ratings above (overall required;
+  dimension ratings optional). Phase 1 has
   no free text, names, contact fields, appointment IDs, treatments, symptoms,
   diagnoses, file uploads or arbitrary answer JSON in any feedback table. This
   deliberately avoids the unsolvable promise of filtering all medical details out
@@ -393,7 +421,7 @@ per billing period. These are the fixed MVP metrics, not arbitrary SQL formulas.
 
 ### subscriptions
 
-Columns: id; tenant_id BIGINT UNSIGNED; tenant_kind ENUM('merchant') DEFAULT 'merchant';
+Columns: id; tenant_id BIGINT UNSIGNED; tenant_kind same ENUM as tenants.kind DEFAULT 'merchant';
 plan_id FK subscription_plans(id); status ENUM('trialing','active','past_due',
 'canceled','expired'); starts_at DATETIME(6); ends_at DATETIME(6)?;
 current_period_start DATETIME(6); current_period_end DATETIME(6);
@@ -405,6 +433,8 @@ UQ(tenant_id,current_slot) enforces one currently allocated subscription. Define
 past_due grace behavior in product policy, independent of the compliance contract.
 CHECK period_end > period_start, ends_at NULL or >= starts_at. Avoid rolling
 implicit NOW()-based constraints. History rows remain, and their plan is pinned.
+Here period_start/end mean current_period_start/current_period_end. CHECK
+tenant_kind = 'merchant'; every parent path has the same merchant-owned billing.
 
 ### usage_records — append-only idempotent event ledger
 
@@ -485,7 +515,7 @@ No claim of cryptographic immutability against a database administrator is made.
 
 ```mermaid
 erDiagram
-    TENANTS ||--o{ TENANTS : parent_of
+    TENANTS o|--o{ TENANTS : permitted_parent
     USERS ||--o{ TENANT_MEMBERSHIPS : joins
     TENANTS ||--o{ TENANT_MEMBERSHIPS : owns
     ROLES ||--o{ TENANT_MEMBERSHIPS : assigns
@@ -518,6 +548,21 @@ are authoritative. Reseller/sub-reseller/merchant are rows in TENANTS, not
 separate entities. Every merchant record's tenant_id refers to its merchant, not
 to whichever ancestor happens to be acting on it.
 
+The following diagram expands permitted type edges, not extra physical tables:
+
+```mermaid
+flowchart TD
+    P[Platform / Super Admin] --> R[Reseller]
+    P --> M[Merchant]
+    R --> S[Sub-Reseller]
+    R --> M
+    S --> M
+    M -. public funnel only .-> C[Customer / end user]
+```
+
+Each non-platform tenant has exactly one actual parent, even though the diagram
+shows several permitted parent types. Customer is not a tenant descendant row.
+
 ## 10. Tenant isolation and permission enforcement
 
 MySQL does not provide the assumed application-level row-policy mechanism here.
@@ -526,8 +571,8 @@ The repository/query layer is therefore a mandatory security boundary.
 
 | Actor | Allowed account creation | Management/read scope (with permission) |
 | --- | --- | --- |
-| Super Admin | Resellers; provision lower accounts only under valid parents | Platform-wide, explicit audited platform path |
-| Reseller admin | Own sub-resellers; merchants under its own sub-resellers | Own account and descendants, no peer reseller |
+| Super Admin | Resellers and direct merchants; provision lower accounts under valid authorized parents | Platform-wide, explicit audited platform path |
+| Reseller admin | Own sub-resellers and direct merchants; merchants under its own sub-resellers | Own account and actual descendants, no peer reseller or platform-direct merchant |
 | Sub-reseller admin | Own merchants only | Own account and merchant descendants, no peer sub-reseller |
 | Merchant admin | No tenant creation | Own merchant, branches, staff and business data |
 | Merchant staff | No tenant creation or role grants | Own merchant, only explicitly granted business actions |
@@ -550,21 +595,28 @@ approval in MVP rather than an accidental escalation route.
    verify its type/status and every ancestor's active status.
 3. Super Admin uses a distinct audited platform service path. It is not enabled
    by omitting WHERE, accepting an is_admin field, or giving tenants global roles.
-4. A reseller may access its own account, its immediate sub-resellers and their
-   merchant descendants when the relevant permission permits. It cannot manage
-   peer resellers. A sub-reseller manages only its merchant children and itself;
-   it cannot create any sub-reseller. A merchant sees only its own resource rows.
-5. Check both action permission and structural parent rule: reseller.create_child
-   can only create sub_reseller children under that reseller; sub-reseller can
-   only create merchant children. Role strings alone are insufficient. Creation
-   uses a locked authorized parent row, then tenant + membership + audit transaction.
+4. A reseller may access its own account, direct merchant children, immediate
+   sub-resellers and their merchant children, with permission. It cannot manage
+   another reseller or platform-direct merchants. A sub-reseller manages only
+   itself and its actual merchant children, not merchants directly under its
+   reseller parent. A merchant sees only its own resource rows.
+5. Check both action permission and the permitted-edge matrix. Resellers may
+   create sub_reseller or merchant children under themselves and merchants under
+   their own sub-resellers. Sub-resellers may create merchant children only.
+   Super Admin may create direct merchants under platform as well as provision
+   any valid edge through an audited platform path. A merchant cannot create
+   administrative tenants. Lock and authorize the actual requested parent, verify
+   its ancestry and active state, derive parent_kind from that row (never the
+   request), then insert tenant + membership + audit in one transaction.
 6. Tenant repositories require context and a concrete verified target tenant;
    every resource query uses WHERE tenant_id = ? AND id = ?, including UPDATE,
    DELETE, count, export, search, jobs and pagination. A zero matched row becomes
    404, avoiding cross-tenant resource existence disclosure. Bind values through
    mysql2.execute; whitelist sorting and identifiers, never interpolate user input.
 7. Ancestor-wide lists join tenants through the typed parent chain or a bounded
-   recursive CTE anchored to the authorized actor tenant. Never load all rows then
+   recursive CTE anchored to the authorized actor tenant, including direct
+   merchant edges. Fixed joins must cover every approved path, not require an
+   INNER JOIN through a sub-reseller. Never load all rows then
    filter in JavaScript; constrain counts and aggregates in the same SQL scope.
    Check ancestry in the same transaction when changing memberships/statuses.
 8. Composite FKs repeat (tenant_id,branch_id) and other parent scopes so a guessed
@@ -587,7 +639,10 @@ in finally. Never issue BEGIN on one pool connection and writes on another.
 ### Required transactional workflows
 
 - Account provisioning: authorized parent lock -> tenant -> user/invited membership
-  -> invite token -> audit, with email dispatch only after commit.
+  -> invite token -> audit, with email dispatch only after commit. Lock/check the
+  active ancestor chain in a stable root-to-parent order to serialize against
+  suspension. A direct merchant needs only its real parent chain, never placeholder
+  reseller/sub-reseller rows. Log actual parent and affected tenant IDs.
 - Branch onboarding: quota admission -> branch -> destination -> draft funnel ->
   short link/pending QR -> usage event/counter -> audit. Publish only after valid
   destination and channel policy checks. Do not perform network IO under DB locks.
@@ -642,11 +697,58 @@ in finally. Never issue BEGIN on one pool connection and writes on another.
 ## 12. Migration and compatibility strategy — not implemented
 
 No migration files, tables, dependencies or commands are added by this document.
-Suggested approach is a small versioned SQL migration runner using existing
-mysql2, with a schema_migrations ledger (version VARCHAR(64) PK, checksum BINARY(32),
-applied_at DATETIME(6), execution_ms INT UNSIGNED) and an exclusive migration lock.
-Evaluate a maintained runner before implementation approval; do not add an ORM
-solely for migrations. Never run migrations during npm prepare/install or readiness.
+Recommended approach: a lightweight explicit Node/TypeScript runner using existing
+mysql2, not an ORM or new migration dependency. No strong requirement found that
+justifies another framework. SQL dialect and connection behavior remain gated by
+the compatibility checklist. Never run migrations during npm prepare/install,
+application startup, requests or readiness.
+
+### Proposed runner contract (design only)
+
+- Ordered fixed-width numeric versions, e.g. 000001, unique descriptive name and
+  immutable LF-normalized UTF-8 source committed with the implementation. Reject
+  duplicate versions, gaps in the expected applied prefix, missing applied files,
+  out-of-order insertion and changed source. Define checksum over exact committed
+  bytes (enforce LF with .gitattributes when implementing), using SHA-256.
+- schema_migrations: version VARCHAR(64) ASCII binary PK; name VARCHAR(160);
+  checksum BINARY(32); status ENUM('applying','applied','failed');
+  started_at DATETIME(6); applied_at DATETIME(6)?; execution_ms BIGINT UNSIGNED?;
+  last_verified_step INT UNSIGNED DEFAULT 0; failure_code VARCHAR(64)?;
+  runner_id BINARY(16). Persist applying before DDL and applied only after all
+  postconditions verify. Record fixed safe failure codes, never raw SQL/credentials.
+- Acquire GET_LOCK on one dedicated connection with a bounded wait and a stable
+  application+schema-scoped name <=64 bytes; continue only on return value 1.
+  Use that same connection for lock, ledger and every step. No pool switching or
+  automatic reconnect. Verify release with RELEASE_LOCK in finally; destroy the
+  connection afterward. Advisory locks survive commits, unlike transaction locks.
+  Verify server/proxy supports session affinity and GET_LOCK in staging. A single
+  primary endpoint is required; lock cannot serialize independent database servers.
+- Metadata bootstrap must also hold the lock. If the ledger name already exists,
+  inspect its definition, not CREATE IF NOT EXISTS plus silent acceptance. A missing
+  ledger with existing business tables requires explicit inventory/baseline review.
+- Execute explicit ordered statements/steps one at a time with multipleStatements
+  disabled. Do not split SQL blindly on semicolons (triggers contain statement
+  bodies); migration modules provide a reviewed statement list and per-step
+  postconditions. Parameterize data changes; scripts/identifiers come from source.
+- MySQL/MariaDB DDL may implicitly commit. After each statement verify schema/data
+  postconditions, then update progress. Process death after DDL but before progress
+  creates an ambiguous step; applying/failed rows block all further migrations.
+  Do not retry DDL automatically or assume rollback undid it. Connection loss
+  aborts execution; no reconnect-and-continue after losing the exclusive lock.
+- Recovery: operator compares actual schema and data with each expected step,
+  reconciles the ambiguous boundary, and authorizes an explicit audited repair/
+  resume only after postconditions and backup are verified. Never edit checksums,
+  mark applied blindly, drop tables or automatically run down migrations. Preserve
+  the failed version and recovery evidence; use a new forward repair where needed.
+- DML-only groups use explicit transactions on the locked connection, with bounded
+  resumable backfill checkpoints. Treat DDL and DML boundaries separately. Rehearse
+  crash recovery at every boundary, checksum rejection and concurrent-run refusal.
+- Migration identity has only reviewed schema/DDL/trigger and ledger privileges;
+  it is supplied only to an operator-run job. Runtime identity has scoped DML,
+  SELECT/INSERT only on append-only tables, no DDL/TRIGGER/GRANT or ledger writes.
+  Provisioning grants needs a separate DBA/provider operation, not broad GRANT
+  OPTION on the migration account. Neither identity may inherit broad schema-wide
+  rights that bypass the audit-table restrictions. Verify effective roles/grants.
 
 1. With separate authorization, obtain a read-only schema inventory or sanitized
    dump, actual server version/engine, collations, grants, table sizes, current
@@ -676,9 +778,11 @@ solely for migrations. Never run migrations during npm prepare/install or readin
 
 ## 13. Proposed implementation sequence and approval gates
 
-1. Approve this hierarchy, structured-only feedback, one channel per merchant and
-   merchant-only initial billing policy. Confirm account ownership and retention
-   rules, direct merchant sales requirements, plan amounts/limits and MFA policy.
+1. Task 02 confirms optional reseller/sub-reseller intermediaries, merchant-owned
+   subscriptions and structured-only feedback. Deferred commercial features are
+   commissions, wallets, payouts and wholesale billing. Confirm remaining account
+   ownership/retention rules, one channel per merchant, plan amounts/limits and MFA
+   policy before implementation approval; direct merchant onboarding is resolved.
 2. Next implementation task: build migration tooling and schema verification in a
    disposable development/staging database; inventory existing schema separately
    before any production targeting. Confirm Hostinger version, CHECK enforcement,
@@ -700,6 +804,9 @@ solely for migrations. Never run migrations during npm prepare/install or readin
 
 - Reseller A cannot enumerate or mutate reseller B descendants; sub-resellers
   cannot create peers; merchant A cannot reference merchant B branch/funnel/link.
+- All five permitted hierarchy edges succeed; every forbidden edge and spoofed
+  parent_kind fails. Platform-direct merchants belong to no reseller; reseller-direct
+  merchants belong to no sub-reseller. Role type never substitutes for ancestry.
 - All administrative tiers enforce permission AND hierarchy, including Super Admin's
   dedicated audited bypass. Customers cannot obtain administrative memberships.
 - Parallel actions are visible independent of rating and feedback status; no tenant,
