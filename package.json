@@ -6,7 +6,6 @@
   "engines": {
     "node": "24.x"
   },
-  "workspaces": ["backend"],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,10 +13,10 @@
     "start": "node server.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
-    "dev:api": "npm run dev --workspace backend",
-    "build:api": "npm run build --workspace backend",
-    "typecheck:api": "npm run typecheck --workspace backend",
-    "start:api": "npm run start --workspace backend"
+    "dev:api": "npm --prefix backend run dev",
+    "build:api": "npm --prefix backend run build",
+    "typecheck:api": "npm --prefix backend run typecheck",
+    "start:api": "npm --prefix backend run start"
   },
   "dependencies": {
     "express": "^5.3.0",

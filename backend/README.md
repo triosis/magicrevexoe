@@ -1,6 +1,6 @@
 # Backend foundation
 
-Requires Node.js 24. Install from the repository root with `npm ci`; the repository uses a single root lockfile.
+Requires Node.js 24. The frontend and backend are independent npm packages with separate lockfiles. Install the backend with `npm ci --prefix backend`; this also compiles it through its prepare script. Install the frontend separately with `npm ci` at the repository root.
 
 ## Local setup
 
@@ -41,7 +41,7 @@ From the repository root:
 npm run typecheck:api
 npm run build:api
 npm run start:api
-npm run test --workspace backend
+npm --prefix backend run test
 ```
 
 Backend tests compile first and use Node's built-in test runner. They exercise HTTP behavior with an injected database probe, environment validation, query deduplication, startup failure, unavailable database behavior, and the real shutdown handler. A successful readiness response against a real database still requires a configured MySQL/MariaDB instance.

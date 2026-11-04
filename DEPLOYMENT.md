@@ -15,6 +15,8 @@ The repository root contains the React frontend. `backend/` contains the separat
 
 Both package files have a `prepare` script, so `npm install` builds the application automatically. No separate build command is needed. Keep npm lifecycle scripts enabled. The committed `.npmrc` files include development dependencies needed by TypeScript and Vite.
 
+The frontend and backend are independent npm packages, each with its own lockfile. There is no npm workspace: installing from `backend/` must run only the backend prepare script, never the root Vite build. For local setup, run `npm ci` at the root and `npm ci --prefix backend` for the API.
+
 ## Frontend environment
 
 Set `NODE_ENV=production` and `HOST=0.0.0.0`. Keep the hosting-provided PORT. Do not add database credentials or JWT secrets to the frontend deployment.
