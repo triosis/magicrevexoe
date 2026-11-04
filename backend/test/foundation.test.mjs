@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { createApp } from '../dist/app.js'
+import { createApp, safeDatabaseFailure } from '../dist/app.js'
 import { loadEnv } from '../dist/config/env.js'
 import { createReadinessCheck } from '../dist/db/pool.js'
 
@@ -14,6 +14,17 @@ const env = {
   DB_PORT: 1, DB_NAME: 'test_only', DB_USER: 'test_only',
   DB_PASSWORD: 'test_only_not_a_credential', DB_CONNECTION_LIMIT: 1,
 }
+
+test('database diagnostics allow only known codes and never driver details', () => {
+  const secret = 'private-user-password-host-database'
+  assert.match(safeDatabaseFailure({ code: 'ER_ACCESS_DENIED_ERROR', message: secret, sql: secret }), /^ER_ACCESS_DENIED_ERROR:/)
+  assert.match(safeDatabaseFailure({ code: 'ER_DBACCESS_DENIED_ERROR', message: secret }), /privileges/)
+  for (const error of [new Error(secret), { code: secret, message: secret }, { code: '__proto__' }, null]) {
+    const result = safeDatabaseFailure(error)
+    assert.match(result, /^UNKNOWN:/)
+    assert.equal(result.includes(secret), false)
+  }
+})
 
 test('health, CORS, parser errors, security headers, and 404 responses', async () => {
   let databaseUp = true

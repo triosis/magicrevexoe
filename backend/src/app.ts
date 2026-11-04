@@ -10,7 +10,31 @@ type Dependencies = {
   checkDatabase: () => Promise<void>
 }
 
+// Only emit known driver codes and fixed descriptions. Driver messages can
+// contain usernames, hostnames, database names, SQL, or other sensitive data.
+const databaseFailures: Record<string, string> = {
+  ER_ACCESS_DENIED_ERROR: 'Authentication failed; verify DB_USER, DB_PASSWORD and allowed connection host.',
+  ER_DBACCESS_DENIED_ERROR: 'Database access denied; verify user assignment and database privileges.',
+  ER_BAD_DB_ERROR: 'Database does not exist; verify the full DB_NAME.',
+  ENOTFOUND: 'Database hostname could not be resolved; verify DB_HOST.',
+  EAI_AGAIN: 'Database hostname resolution temporarily failed.',
+  ECONNREFUSED: 'Database connection refused; verify DB_HOST, DB_PORT and service availability.',
+  ETIMEDOUT: 'Database connection timed out; verify network access and database availability.',
+  PROTOCOL_SEQUENCE_TIMEOUT: 'Database query timed out.',
+  ER_CON_COUNT_ERROR: 'Database connection limit reached.',
+}
+
+export function safeDatabaseFailure(error: unknown): string {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined
+  if (typeof code === 'string' && Object.hasOwn(databaseFailures, code)) {
+    return `${code}: ${databaseFailures[code]}`
+  }
+  return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
+}
+
 export function createApp({ env, isShuttingDown, checkDatabase }: Dependencies) {
+  let lastDatabaseFailure = ''
+  let lastDatabaseFailureAt = 0
   const app = express()
   app.disable('x-powered-by')
   app.use(helmet())
@@ -39,8 +63,15 @@ export function createApp({ env, isShuttingDown, checkDatabase }: Dependencies) 
     }
     try {
       await checkDatabase()
+      lastDatabaseFailure = ''
       response.status(isShuttingDown() ? 503 : 200).json({ status: isShuttingDown() ? 'not_ready' : 'ready', database: 'up' })
-    } catch {
+    } catch (error) {
+      const failure = safeDatabaseFailure(error)
+      if (failure !== lastDatabaseFailure || Date.now() - lastDatabaseFailureAt >= 30_000) {
+        console.error(`Database readiness failed: ${failure}`)
+        lastDatabaseFailure = failure
+        lastDatabaseFailureAt = Date.now()
+      }
       response.status(503).json({ status: 'not_ready', database: 'unavailable' })
     }
   })
