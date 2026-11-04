@@ -81,8 +81,16 @@ for the complete regression results and remaining deployment gates.
 Task 08 adds [QR/short-link/public funnel APIs](docs/funnels-api.md). Supply an
 exact HTTPS PUBLIC_FUNNEL_ORIGIN through operator configuration before issuing
 codes; no Host-header-derived URLs or default production origin is used. The QR
-currently resolves to a JSON API, not a customer page. Private-feedback submission
-and the public frontend remain separate work. Run
+currently resolves to a JSON API, not a customer page. Task 09 now implements
+private-feedback submission; the public frontend remains separate work. Run
 `npm --prefix backend run test:funnels:integration` with the same disposable local
 MariaDB harness. See [the Task 08 report](docs/funnels-implementation-report.md)
 for security limits, complete file inventory and all regression results.
+
+See [feedback-api.md](docs/feedback-api.md) for anonymous signed/idempotent
+structured submission and authorized feedback management. Run
+`npm --prefix backend run test:feedback:integration` with the same disposable
+local MariaDB harness. Read the [security report](docs/feedback-security-report.md)
+and [implementation/test inventory](docs/feedback-implementation-report.md) before
+rollout. Existing current subscriptions require initialized usage counters; no
+new production secret, schema migration or quota admission was added.

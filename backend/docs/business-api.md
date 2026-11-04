@@ -1,5 +1,9 @@
 # Merchant, branch and industry channel API
 
+Task 09 implements structured private feedback submission and management:
+[feedback-api.md](feedback-api.md). Earlier task notes about absent submission
+refer to historical scope; the customer-facing frontend remains separate work.
+
 Task 08 adds branch funnel publication, short links, QR assets and public JSON
 projection/events: [funnels-api.md](funnels-api.md). Task 07 absence/scope notes
 below describe that earlier implementation; private submission remains future work.

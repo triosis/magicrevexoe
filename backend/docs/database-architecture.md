@@ -1,5 +1,13 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 09 update: anonymous structured private submission, signed version/expiry
+tokens, per-form idempotency, scoped management/statistics and controlled status
+history now use this schema locally. See feedback-api.md, feedback-security-report.md
+and feedback-implementation-report.md. Current subscriptions record usage only with
+initialized counters; missing counters fail closed. No quota admission, migration,
+production or frontend change. The historical missing-submission notes below are
+superseded; a customer-facing page remains future work.
+
 Task 08 update: immutable branch funnel publication, secure short links, SVG/PNG
 QR metadata/content, public JSON projection and minimal anonymous selection/view
 events now use this schema locally. No migration or production change. See

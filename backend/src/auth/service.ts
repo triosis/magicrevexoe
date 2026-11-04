@@ -7,6 +7,7 @@ import { Authorization, type Principal, type Membership } from './authorization.
 import { AccessTokens, tokenDigest, opaqueToken } from './tokens.js'
 import { hashPassword, verifyPassword } from './passwords.js'
 import type { InvitationDelivery } from '../tenants/delivery.js'
+import {FeedbackTokens} from '../feedback/tokens.js'
 
 type User = RowDataPacket & { id: string; email: string; password_hash: string | null; status: string; auth_version: number; email_verified_at: Date | null }
 type Session = RowDataPacket & { id: string; user_id: string; family_id: Buffer; auth_version: number; expires_at: Date; revoked_at: Date | null; valid: number }
@@ -15,9 +16,11 @@ function invalid(): never { throw new HttpError(401, 'Invalid credentials') }
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase()
 
 export class AuthService {
+  readonly feedbackTokens:FeedbackTokens
   readonly authorization: Authorization
   private readonly tokens: AccessTokens
   constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>) {
+    this.feedbackTokens=new FeedbackTokens(key)
     this.tokens = new AccessTokens(key)
     this.authorization = new Authorization(pool)
   }

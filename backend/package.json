@@ -21,6 +21,7 @@
     "test:tenants:integration": "npm run build && node --test test/tenants.integration.mjs",
     "test:business:integration": "npm run build && node --test test/business.integration.mjs",
     "test:funnels:integration": "npm run build && node --test test/funnels.integration.mjs",
+    "test:feedback:integration": "npm run build && node --test test/feedback.integration.mjs",
     "test": "npm run build && node --test test/*.test.mjs"
   },
   "dependencies": {

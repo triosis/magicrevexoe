@@ -1,5 +1,9 @@
 # QR, short links and public funnel API
 
+Task 09 adds [private feedback APIs](feedback-api.md). Public projection now
+advertises submissionAvailable=true, a submissionUrl and a signed 15-minute form
+token. QR URLs remain backend JSON URLs. No frontend page is implemented.
+
 Task 08, 2026-11-04. Prefix `/api/v1`. This is a backend JSON API; no frontend
 page, Google ownership verification, SMTP verification or production deployment
 is included. See [funnels-implementation-report.md](funnels-implementation-report.md).
@@ -125,13 +129,12 @@ service/cleanliness/waiting-time ratings, integers 1-5. Dimension labels come fr
 the pinned published channel configuration. Clinic has no text/contact/medical
 fields; the same structured-only Phase 1 contract applies to the other channels.
 
-This task implements funnel metadata and independent option selection, not a
-private-feedback submission endpoint. The response honestly declares
-`privateFeedback.submissionAvailable=false`; customers cannot submit feedback yet.
-A separately implemented submission service and public UI are required to make
-the complete private-feedback journey usable. Do not present selection telemetry
-as submitted feedback or advertise an operational customer journey before that.
-The Google option remains independently available in this backend projection.
+Task 09 now implements POST `/public/funnels/:code/feedback`, with a signed
+version-bound token issued by this projection and structured-only allowlisted
+answers. `privateFeedback.submissionAvailable=true` declares backend availability;
+see the feedback contract for token expiry, idempotency and accounting behavior.
+Selection telemetry is still distinct from submitted feedback. The Google option
+remains independently available. A public customer page remains future work.
 
 ## Events, concurrency and privacy
 
