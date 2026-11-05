@@ -14,6 +14,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:browser": "node scripts/browser-tests.mjs",
+    "test:e2e:real": "npm --prefix backend run build && node --test scripts/e2e-real.mjs",
     "test:server": "node --test test/frontend-server.test.mjs",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview",

@@ -1,5 +1,11 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 12 update: real React/Express/disposable MariaDB 11.8.9 end-to-end verification
+now covers the complete hierarchical onboarding, QR/public feedback and merchant
+subscription journey locally. See ../../docs/e2e-integration-report.md and its
+browser/security reports. No runtime/schema change, production access or deployment
+approval; quota admission remains unimplemented.
+
 Task 11 update: merchant-owned subscription assignment/status/history and usage
 visibility now use the existing schema. Current counter initialization is
 transactional/idempotent; current gauges use live resource counts, while gauge

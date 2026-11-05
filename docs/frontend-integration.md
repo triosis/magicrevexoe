@@ -1,5 +1,11 @@
 # MagicReview AI application guide
 
+Task 12 adds separate real-stack verification: `npm run test:e2e:real` uses actual
+React/Express/MariaDB and real browser/HTTP requests, without local API mocks.
+See [integration report](e2e-integration-report.md), [browser setup/results](e2e-browser-report.md)
+and [security verification](e2e-security-report.md). Local results do not establish
+Hostinger/SMTP/Google deployment readiness.
+
 Task 10 implements the React application against the existing APIs. No production
 connection, migration or environment change was performed. Test evidence and all
 changed files: [frontend-implementation-report.md](frontend-implementation-report.md).
