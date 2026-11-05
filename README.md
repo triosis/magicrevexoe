@@ -1,4 +1,24 @@
-# React + TypeScript + Vite
+# MagicReview AI
+
+The landing page is preserved at `/`; invited users enter the live application at
+`/login`, and anonymous review links open `/r/:code`.
+
+Read [the frontend guide](docs/frontend-integration.md) for VITE_API_URL, sessions,
+onboarding, public QR routing and known limits. Read [the implementation report](docs/frontend-implementation-report.md)
+for validation results and a complete file inventory. Backend contracts are in
+`backend/docs/`. No production configuration or deployment is implied.
+
+Install frontend and backend dependencies separately with `npm ci` and
+`npm --prefix backend ci`. Run `npm run dev` for the frontend and a separately
+configured local `npm run dev:api` for the backend. Production remains
+`npm run build` / `npm start`.
+
+Tests: `npm test`, `npm run test:browser` (installed Chrome), and after building,
+`npm run test:server`. Backend disposable MariaDB suites are documented in the report.
+
+## Original Vite starter notes
+
+### React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

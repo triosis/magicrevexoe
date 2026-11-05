@@ -1,5 +1,11 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 10 update: the React application now integrates the existing APIs, including
+invited access, scoped account/business management and anonymous structured feedback.
+See ../../docs/frontend-integration.md and frontend-implementation-report.md there.
+The optional trusted PUBLIC_WEB_ORIGIN bridges HTML QR visits to /r/:code; JSON
+contracts and database authorization are unchanged. No production/migration change.
+
 Task 09 update: anonymous structured private submission, signed version/expiry
 tokens, per-form idempotency, scoped management/statistics and controlled status
 history now use this schema locally. See feedback-api.md, feedback-security-report.md

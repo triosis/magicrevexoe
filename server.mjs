@@ -11,6 +11,12 @@ if (!existsSync(index)) {
 
 const app = express()
 app.disable('x-powered-by')
+app.use((_request,response,next)=>{
+  response.set('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' https: http://127.0.0.1:* http://localhost:*; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+  response.set('Referrer-Policy','no-referrer')
+  response.set('X-Content-Type-Options','nosniff')
+  next()
+})
 app.use(express.static(directory, { index: 'index.html' }))
 // Support browser navigation while keeping missing assets and API URLs as 404s.
 app.get('/{*path}', (request, response) => {

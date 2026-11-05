@@ -20,7 +20,7 @@ test('QR, short links and public parallel funnels on disposable MariaDB 11.8.9',
  await fixture.admin.query('CREATE DATABASE magicreview_migration_funnels CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
  const env={NODE_ENV:'test',HOST:'127.0.0.1',PORT:3001,CORS_ORIGINS:['https://example.invalid'],DB_HOST:'127.0.0.1',DB_PORT:fixture.options.port,DB_NAME:'magicreview_migration_funnels',DB_USER:'root',DB_PASSWORD:fixture.options.password,DB_CONNECTION_LIMIT:5}
  const pool=createDatabasePool(env);pool.on('connection',c=>sessions.add(c))
- const auth=new AuthService(pool,randomBytes(32)),tenants=new TenantService(pool,auth),business=new BusinessService(tenants,auth),funnels=new FunnelService(pool,tenants,auth,'https://api.example.invalid')
+ const auth=new AuthService(pool,randomBytes(32)),tenants=new TenantService(pool,auth),business=new BusinessService(tenants,auth),funnels=new FunnelService(pool,tenants,auth,'https://api.example.invalid','https://app.example.invalid')
  const actors={},cases=[],channels={},roles={};let server,base,root,reseller,sub,peer,peerMerchant
  async function query(sql,args=[]){return(await pool.execute(sql,args))[0]}
  async function insert(table,values){const keys=Object.keys(values);return String((await query(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(()=>'?').join(',')})`,Object.values(values))).insertId)}
@@ -64,6 +64,11 @@ test('QR, short links and public parallel funnels on disposable MariaDB 11.8.9',
    assert.equal((await request('POST',`/branches/${cases[0].branch}/short-links`,'merchant',{funnelId:cases[0].funnel,url:'https://evil.invalid'})).status,400)
   })
   await t.test('public responses minimize data and expose independent structured options for every industry',async()=>{
+   const browser=await fetch(base+'/api/v1/public/funnels/'+cases[0].link.code,{headers:{Accept:'text/html'},redirect:'manual'})
+   assert.equal(browser.status,303);assert.equal(browser.headers.get('location'),'https://app.example.invalid/r/'+cases[0].link.code)
+   assert.equal(browser.headers.get('cache-control'),'no-store')
+   const invalid=await fetch(base+'/api/v1/public/funnels/invalid',{headers:{Accept:'text/html'},redirect:'manual'})
+   assert.equal(invalid.status,404);assert.equal(invalid.headers.get('location'),null)
    for(const c of cases){
     const r=await request('GET','/public/funnels/'+c.link.code);assert.equal(r.status,200)
     assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(r.body.industryChannel.code,c.code)

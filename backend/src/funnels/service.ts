@@ -16,7 +16,8 @@ const json=(v:unknown)=>typeof v==='string'?JSON.parse(v):v
 
 export class FunnelService{
  private readonly origin:string|undefined
- constructor(private readonly pool:Pool,private readonly tenants:TenantService,private readonly auth:AuthService,origin?:string){this.origin=origin===undefined?undefined:publicOrigin(origin)}
+ private readonly webOrigin:string|undefined
+ constructor(private readonly pool:Pool,private readonly tenants:TenantService,private readonly auth:AuthService,origin?:string,webOrigin?:string){this.origin=origin===undefined?undefined:publicOrigin(origin);try{this.webOrigin=webOrigin===undefined?undefined:publicOrigin(webOrigin)}catch{throw new Error('PUBLIC_WEB_ORIGIN must be an exact HTTPS origin')}}
  private url(code:string){if(!this.origin)throw new HttpError(503,'Public funnel origin not configured');return `${this.origin}/api/v1/public/funnels/${code}`}
  private async branch(db:PoolConnection,actor:TenantActor,id:string,permission:string){
   this.tenants.requirePermission(actor,permission)
@@ -127,6 +128,7 @@ export class FunnelService{
  private async publicEvent(db:PoolConnection,f:RowDataPacket,event:string){
   await db.execute("INSERT INTO audit_logs(event_id,tenant_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?, ?, ?, 'short_link', ?, ?, 'success', '{}')",[randomBytes(16),f.tenant_id,`public.${event}`,f.link_id,randomBytes(16)])
  }
+ async publicPage(code:string){if(!this.webOrigin)return undefined;return transaction(this.pool,async db=>{await this.publicRecord(db,code);return this.webOrigin+'/r/'+code})}
  async resolve(code:string){return transaction(this.pool,async db=>{
   const f=await this.publicRecord(db,code),copy=json(f.public_copy)
   await this.publicEvent(db,f,'funnel_viewed')

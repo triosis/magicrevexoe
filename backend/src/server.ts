@@ -15,7 +15,7 @@ async function main() {
   const auth=configuredAuth(pool,process.env)
   const tenants=auth?new TenantService(pool,auth,auth.invitationDelivery()):undefined
   const business=auth&&tenants?new BusinessService(tenants,auth):undefined
-  const funnels=auth&&tenants?new FunnelService(pool,tenants,auth,process.env.PUBLIC_FUNNEL_ORIGIN):undefined
+  const funnels=auth&&tenants?new FunnelService(pool,tenants,auth,process.env.PUBLIC_FUNNEL_ORIGIN,process.env.PUBLIC_WEB_ORIGIN):undefined
   const feedback=auth&&tenants&&funnels?new FeedbackService(tenants,auth,funnels):undefined
   const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback })
   const server = createServer(app)

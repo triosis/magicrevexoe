@@ -1,5 +1,9 @@
 # QR, short links and public funnel API
 
+Task 10 implements the React customer page at `/r/:code` and adds an optional
+trusted browser bridge. See [frontend integration](../../docs/frontend-integration.md).
+Earlier absence-of-frontend notes below describe the historical task scope.
+
 Task 09 adds [private feedback APIs](feedback-api.md). Public projection now
 advertises submissionAvailable=true, a submissionUrl and a signed 15-minute form
 token. QR URLs remain backend JSON URLs. No frontend page is implemented.
@@ -18,11 +22,14 @@ and public resolution still work with configured auth, but link creation and QR
 URL operations return 503. URLs are never derived from Host/forwarded headers.
 
 The QR encodes precisely
-`<PUBLIC_FUNNEL_ORIGIN>/api/v1/public/funnels/<random-code>`. It currently resolves
-to JSON, not an HTML landing page. Configure an origin serving this backend path;
-the operator must separately verify DNS/HTTPS/routing. No automatic redirect or
-external arbitrary destination is accepted. A future public UI needs a deliberate
-route/URL rollout; do not silently change already printed QR URLs.
+`<PUBLIC_FUNNEL_ORIGIN>/api/v1/public/funnels/<random-code>`. JSON requests remain
+JSON. When the operator supplies PUBLIC_WEB_ORIGIN as an exact HTTPS frontend
+origin, explicit HTML browser requests validate the same active funnel and return
+303 to that fixed origin's `/r/:code`. The response is no-store and Vary:Accept;
+invalid links never redirect. No request/Host/query can choose another destination.
+If unset, original JSON behavior is retained. The operator must separately verify
+both DNS/HTTPS deployments, API CORS and frontend routing. Printed QR bytes/URLs
+are not rewritten and no production environment was modified by Task 10.
 
 Workflow: publish a channel version using the platform channel API; create an
 active branch and canonical Google destination; publish a branch funnel; create

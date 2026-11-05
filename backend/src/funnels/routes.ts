@@ -14,7 +14,7 @@ export function funnelRoutes(auth?:AuthService,service?:FunnelService){
  const available:RequestHandler=(_req,_res,next)=>{if(!service)throw new HttpError(503,'Funnel service unavailable');next()}
  const publicLimit:RequestHandler=(req,res,next)=>{try{limiter.consume('public-global',6000,60_000);limiter.consume(`public:${req.ip??req.socket.remoteAddress}`,120)}catch(error){res.set('Retry-After','900');throw error}next()}
  router.use('/public/funnels',noStore,publicLimit,available)
- router.get('/public/funnels/:code',async(req,res)=>{parse(empty,req.query);res.json(await service!.resolve(req.params.code))})
+ router.get('/public/funnels/:code',async(req,res)=>{parse(empty,req.query);res.vary('Accept');if(req.get('Accept')?.includes('text/html')&&req.accepts('html')){const page=await service!.publicPage(req.params.code);if(page){res.redirect(303,page);return}}res.json(await service!.resolve(req.params.code))})
  router.post('/public/funnels/:code/events',async(req,res)=>{parse(empty,req.query);const input=parse(eventInput,req.body);res.json(await service!.event(req.params.code,input.event))})
  const protectedRoute:RequestHandler[]=[noStore,available,auth?auth.authentication():(_req,_res)=>{throw new HttpError(503,'Authentication unavailable')},activeMembership(),(req,res,next)=>{try{if(req.method!=='GET')limiter.consume(`funnel-write:${principalFrom(res.locals).identity.sub}`,30)}catch(error){res.set('Retry-After','900');throw error}next()}]
  router.post('/branches/:id/funnels',...protectedRoute,async(req,res)=>{res.status(201).json(await service!.publish(principalFrom(res.locals),parse(identifier,req.params.id),parse(funnelInput,req.body)))})

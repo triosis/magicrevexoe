@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test'
+export default defineConfig({testDir:'test/browser',outputDir:'.tmp-frontend/test-results',fullyParallel:false,workers:1,timeout:45000,use:{baseURL:'http://127.0.0.1:5178',channel:'chrome',headless:true,trace:'retain-on-failure'},webServer:{command:'npm run dev -- --host 127.0.0.1 --port 5178 --strictPort',url:'http://127.0.0.1:5178',reuseExistingServer:process.env.PW_REUSE_SERVER==='1',env:{VITE_API_URL:'http://127.0.0.1:4189/api/v1'}},reporter:'list'})

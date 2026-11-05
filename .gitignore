@@ -17,6 +17,7 @@ dist-ssr
 *.tsbuildinfo
 coverage
 .tmp-mariadb/
+.tmp-frontend/
 
 # Editor directories and files
 .vscode/*
