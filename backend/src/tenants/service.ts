@@ -38,8 +38,8 @@ export class TenantService {
     if(!user||user.status!=='active'||!user.email_verified_at||user.auth_version!==principal.identity.av)throw new HttpError(401,'Authentication required')
     const root=await lockPlatform(db,!readOnly)
     if(!root||root.status!=='active')denied()
-    const session=(await select(db,'SELECT id FROM auth_sessions WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) AND auth_version=?',[principal.identity.sid,principal.identity.sub,principal.identity.av]))[0]
-    if(!session)throw new HttpError(401,'Authentication required')
+    const session=(await select(db,'SELECT id,mfa_verified,challenge_only FROM auth_sessions WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) AND auth_version=?',[principal.identity.sid,principal.identity.sub,principal.identity.av]))[0]
+    if(!session||session.challenge_only||(await this.auth.requiresMfa(db,principal.identity.sub)&&(!session.mfa_verified||principal.identity.amr.length!==2)))throw new HttpError(401,'Authentication required')
     if(!principal.identity.mid)denied()
     const member=await this.auth.authorization.membership(principal.identity.sub,principal.identity.mid,db)
     return work(db,{member,principal})

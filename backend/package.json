@@ -25,7 +25,8 @@
     "test:feedback:concurrency": "npm run build && node --test test/feedback-concurrency.integration.mjs",
     "test:subscriptions:integration": "npm run build && node --test test/subscriptions.integration.mjs",
     "test:quotas:integration": "npm run build && node --test test/quotas.integration.mjs",
-    "test": "npm run build && node --test test/*.test.mjs"
+    "test": "npm run build && node --test test/*.test.mjs",
+    "test:mfa:integration": "npm run build && node --test test/mfa.integration.mjs"
   },
   "dependencies": {
     "argon2": "^0.45.2",
@@ -36,6 +37,7 @@
     "jose": "^6.2.15",
     "mysql2": "^3.24.6",
     "nodemailer": "^10.3.1",
+    "otpauth": "^9.6.0",
     "qrcode": "^1.5.4",
     "zod": "^4.6.7"
   },

@@ -1,5 +1,20 @@
 # Task 14 production-readiness audit
 
+## Task 16 current status (2026-11-05)
+
+Platform MFA is now implemented and locally tested; historical missing-MFA
+statements below describe Task 14. MFA requires additive migrations 000064?000066,
+independent AUTH_MFA_KEY provisioning, controlled administrator enrollment and
+provider validation before any deployment. See
+[mfa-implementation-report.md](mfa-implementation-report.md) and
+[secret-rotation-runbook.md](secret-rotation-runbook.md).
+
+Verdict remains **NOT READY ? CRITICAL BLOCKERS**: historical credential rotation,
+backup/restore rehearsal, approved production migration/baseline, least-privilege
+effective grants, database transport and provider operations remain unverified
+or absent. No production secret rotation, deployment or database connection occurred.
+
+
 Task 15 update (2026-11-05): the identified root-lock inversion is corrected
 locally using one shared unique platform_slot lookup/projection, without automatic
 retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)

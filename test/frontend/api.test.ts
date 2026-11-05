@@ -3,6 +3,17 @@ import {ApiClient} from '../../src/application/api'
 import {json,me} from './fixtures'
 const key='magicreview.session.v1',refresh='r'.repeat(43),rotated='s'.repeat(43)
 describe('API session client',()=>{
+ it('keeps MFA challenges in memory without privileges or refresh persistence, then accepts verified tokens',async()=>{
+  sessionStorage.clear()
+  const calls:string[]=[],transport=vi.fn(async url=>{const path=String(url);calls.push(path);if(path.endsWith('/auth/login'))return json({mfaRequired:true,challengeToken:'c'.repeat(43),enrollmentRequired:true});if(path.endsWith('/mfa/enrollment'))return new Response('PNG',{headers:{'Content-Type':'image/png'}});if(path.endsWith('/mfa/activate'))return json({accessToken:'verified',refreshToken:refresh,recoveryCodes:['save-once']});return json(me)})
+  const client=new ApiClient('https://api.example.invalid/api/v1',transport as typeof fetch,sessionStorage)
+  expect(await client.login('email','password')).toBeNull();expect(sessionStorage.getItem(key)).toBeNull();expect(calls.some(p=>p.endsWith('/auth/me'))).toBe(false)
+  expect((await client.enrollmentQr()).type).toBe('image/png');const result=await client.completeMfa('123456');expect(result.recoveryCodes).toEqual(['save-once']);expect(result.profile).toEqual(me);expect(client.pendingMfa).toBeUndefined();expect(sessionStorage.getItem(key)).not.toContain('save-once');expect(sessionStorage.getItem(key)).not.toContain('challengeToken')
+ })
+ it('invalid MFA does not create a session or automatically retry verification',async()=>{
+  sessionStorage.clear();const transport=vi.fn(async url=>String(url).endsWith('/auth/login')?json({mfaRequired:true,challengeToken:'c'.repeat(43),enrollmentRequired:false}):json({error:'Invalid credentials'},401))
+  const client=new ApiClient('https://api.example.invalid/api/v1',transport as typeof fetch,sessionStorage);await client.login('email','password');await expect(client.completeMfa('000000')).rejects.toMatchObject({status:401});expect(transport).toHaveBeenCalledTimes(2);expect(sessionStorage.getItem(key)).toBeNull();expect(client.pendingMfa).toBeDefined();client.clear();expect(client.pendingMfa).toBeUndefined()
+ })
  it('retains structured quota information and explains the blocked operation',async()=>{
   const client=new ApiClient('https://api.example.invalid/api/v1',vi.fn(async()=>json({error:'Operation blocked: branches quota exceeded',code:'QUOTA_EXCEEDED',metric:'branches',limit:'2',used:'2',remaining:'0'},409)) as typeof fetch)
   await expect(client.public('/fixture','POST',{})).rejects.toMatchObject({status:409,quota:{code:'QUOTA_EXCEEDED',metric:'branches',limit:'2',used:'2',remaining:'0'},message:expect.stringContaining('Limit: 2; used: 2; remaining: 0')})

@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=2) AS satisfied FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='auth_sessions' AND COLUMN_NAME IN ('mfa_verified','challenge_only') AND IS_NULLABLE='NO' AND COLUMN_DEFAULT='0'

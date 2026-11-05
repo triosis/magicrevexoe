@@ -14,6 +14,7 @@ import {createDatabasePool,createReadinessCheck} from '../backend/dist/db/pool.j
 import {loadMigrations,runMigrations} from '../backend/dist/migrations/runner.js'
 import {hashPassword} from '../backend/dist/auth/passwords.js'
 import {AuthService} from '../backend/dist/auth/service.js'
+import {authenticator} from '../backend/test/mfa-fixtures.mjs'
 import {TenantService} from '../backend/dist/tenants/service.js'
 import {BusinessService} from '../backend/dist/business/service.js'
 import {FunnelService} from '../backend/dist/funnels/service.js'
@@ -47,7 +48,7 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
   }finally{await r.dispose()}
  }
  async function query(sql,args=[]){return(await pool.execute(sql,args))[0]}
- async function browserLogin(target,email){await target.goto(web+'/login');await target.getByLabel('Email',{exact:true}).fill(email);await target.getByLabel('Password',{exact:true}).fill(password);const selected=target.waitForResponse(r=>r.url()===api+'/api/v1/auth/select-tenant'&&r.request().method()==='POST');await target.getByRole('button',{name:'Sign in',exact:true}).click();await expect(target.getByRole('navigation',{name:'Workspace navigation'})).toBeVisible();return(await(await selected).json()).accessToken}
+ async function browserLogin(target,email){await target.goto(web+'/login');await target.getByLabel('Email',{exact:true}).fill(email);await target.getByLabel('Password',{exact:true}).fill(password);const selected=target.waitForResponse(r=>r.url()===api+'/api/v1/auth/select-tenant'&&r.request().method()==='POST');await target.getByRole('button',{name:'Sign in',exact:true}).click();if(email==='super@example.invalid'){const image=target.getByRole('img',{name:'Private MFA enrollment QR'});await expect(image).toBeVisible();const otp=authenticator(await image.screenshot());await target.getByLabel('Authenticator or recovery code').fill(otp.generate());await target.getByRole('button',{name:'Verify MFA',exact:true}).click();await target.getByRole('button',{name:'I saved my recovery codes'}).click()}await expect(target.getByRole('navigation',{name:'Workspace navigation'})).toBeVisible();return(await(await selected).json()).accessToken}
  async function accept(email){
   const message=deliveries.get(email);assert.ok(message,'Invitation delivered only to memory adapter')
   const p=await browser.newPage({ignoreHTTPSErrors:true});try{await p.goto(web+'/accept-invitation#token='+message.token);await expect(p).toHaveURL(web+'/accept-invitation');await p.getByLabel('Account password').fill(password);await p.getByRole('button',{name:'Accept invitation',exact:true}).click();await expect(p.getByRole('status')).toContainText('Invitation accepted')}finally{await p.close()}
@@ -81,7 +82,7 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
   backend=secureServer(tls);backend.listen(0,'127.0.0.1');await once(backend,'listening');api='https://127.0.0.1:'+backend.address().port
   process.env.VITE_API_URL=api+'/api/v1'
   frontend=await viteServer({envDir:false,server:{host:'127.0.0.1',port:0,https:tls}});await frontend.listen();web='https://127.0.0.1:'+frontend.httpServer.address().port;env.CORS_ORIGINS=[web]
-  const auth=new AuthService(pool,randomBytes(32)),delivery={kind:'test',verify:async()=>{},send:async message=>{deliveries.set(message.email,message)}}
+  const auth=new AuthService(pool,randomBytes(32),undefined,undefined,randomBytes(32)),delivery={kind:'test',verify:async()=>{},send:async message=>{deliveries.set(message.email,message)}}
   const tenants=new TenantService(pool,auth,delivery),business=new BusinessService(tenants,auth),funnels=new FunnelService(pool,tenants,auth,api,web),feedback=new FeedbackService(tenants,auth,funnels),subscriptions=new SubscriptionService(tenants)
   backend.on('request',createApp({env,auth,tenants,business,funnels,feedback,subscriptions,checkDatabase:createReadinessCheck(pool),isShuttingDown:()=>false}))
   browser=await chromium.launch({channel:'chrome',headless:true})

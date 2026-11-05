@@ -16,6 +16,7 @@ export class ApiClient{
  private session:StoredSession|undefined
  private refreshFlight:Promise<void>|undefined
  private restoreFlight:Promise<Me|null>|undefined
+ pendingMfa:{challengeToken:string;enrollmentRequired:boolean}|undefined
  private generation=0
  private configurationError=false
  readonly base:string
@@ -27,7 +28,7 @@ export class ApiClient{
  }
  private persist(){try{if(this.session)this.storage?.setItem(storageKey,JSON.stringify(this.session));else this.storage?.removeItem(storageKey)}catch{/* Memory-only session when tab storage is unavailable. */}}
  subscribe(listener:()=>void){this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
- clear(){this.generation++;this.accessToken=undefined;this.session=undefined;this.persist();for(const listener of this.listeners)listener()}
+ clear(){this.pendingMfa=undefined;this.generation++;this.accessToken=undefined;this.session=undefined;this.persist();for(const listener of this.listeners)listener()}
  private async send(path:string,method:string,body:unknown,token?:string,blob=false):Promise<unknown>{
   if(!this.base||this.configurationError)throw new ApiError(0,'Set a valid VITE_API_URL to connect this application to your backend.')
   if(!path.startsWith('/')||path.startsWith('//')||path.includes('..')||/[\r\n]/.test(path))throw new ApiError(0,'Invalid API path')
@@ -63,7 +64,9 @@ export class ApiClient{
    try{return await this.send(path,method,body,this.accessToken,blob) as T}catch(retryError){if(retryError instanceof ApiError&&retryError.status===401)this.clear();throw retryError}
   }
  }
- async login(email:string,password:string){const epoch=++this.generation;const reply=await this.send('/auth/login','POST',{email,password}) as SessionReply;if(epoch!==this.generation)throw new ApiError(401,'Session changed');this.accessToken=reply.accessToken;this.session={refreshToken:reply.refreshToken};this.persist();return this.me()}
+ async login(email:string,password:string){const epoch=++this.generation;const reply=await this.send('/auth/login','POST',{email,password}) as SessionReply & {mfaRequired?:boolean;challengeToken:string;enrollmentRequired:boolean};if(epoch!==this.generation)throw new ApiError(401,'Session changed');if(reply.mfaRequired){this.accessToken=undefined;this.session=undefined;this.persist();this.pendingMfa={challengeToken:reply.challengeToken,enrollmentRequired:reply.enrollmentRequired};return null}this.pendingMfa=undefined;this.accessToken=reply.accessToken;this.session={refreshToken:reply.refreshToken};this.persist();return this.me()}
+ async enrollmentQr(){if(!this.pendingMfa)throw new ApiError(401,'Sign in again');return await this.send('/auth/mfa/enrollment','POST',{challengeToken:this.pendingMfa.challengeToken},undefined,true) as Blob}
+ async completeMfa(code:string){const pending=this.pendingMfa,epoch=this.generation;if(!pending)throw new ApiError(401,'Sign in again');const reply=await this.send(pending.enrollmentRequired?'/auth/mfa/activate':'/auth/mfa/verify','POST',{challengeToken:pending.challengeToken,code}) as SessionReply & {recoveryCodes?:string[]};if(epoch!==this.generation)throw new ApiError(401,'Session changed');this.pendingMfa=undefined;this.accessToken=reply.accessToken;this.session={refreshToken:reply.refreshToken};this.persist();return {profile:await this.me(),recoveryCodes:reply.recoveryCodes}}
  me(){return this.request<Me>('/auth/me')}
  restore(){if(this.restoreFlight)return this.restoreFlight;this.restoreFlight=(async()=>{if(!this.session)return null;await this.rotate();return this.me()})().finally(()=>{this.restoreFlight=undefined});return this.restoreFlight}
  async selectMembership(membershipId:string){const epoch=this.generation;const selected=await this.request<{accessToken:string}>('/auth/select-tenant','POST',{membershipId});if(epoch!==this.generation||!this.session)throw new ApiError(401,'Session changed');this.accessToken=selected.accessToken;this.session={...this.session,membershipId};this.persist();return this.me()}

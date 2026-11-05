@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=1) AS satisfied FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_mfa' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci'

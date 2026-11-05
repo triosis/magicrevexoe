@@ -5,7 +5,7 @@ import { AuthService, type TokenDelivery } from './service.js'
 
 const secret = z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/).refine(value=>{
   const key=Buffer.from(value,'base64')
-  return key.byteLength>=32 && key.byteLength<=128 && key.toString('base64')===value
+  return new Set(key).size>=16 && key.byteLength>=32 && key.byteLength<=128 && key.toString('base64')===value
 })
 const smtp = z.object({
   AUTH_SMTP_HOST:z.string().min(1),AUTH_SMTP_PORT:z.coerce.number().int().refine(port=>[465,587].includes(port)),
@@ -17,9 +17,12 @@ const smtp = z.object({
 })
 
 export function configuredAuth(pool: Pool, environment: NodeJS.ProcessEnv): AuthService | undefined {
-  if (!environment.AUTH_ACCESS_SECRET) return undefined
+  if (!environment.AUTH_ACCESS_SECRET) {if(environment.NODE_ENV==='production')throw Error('Missing authentication configuration');return undefined}
   const parsed=secret.safeParse(environment.AUTH_ACCESS_SECRET)
   if (!parsed.success) throw new Error('Invalid AUTH_ACCESS_SECRET configuration')
+  let mfaKey:Buffer|undefined
+  if(environment.AUTH_MFA_KEY){const result=secret.safeParse(environment.AUTH_MFA_KEY);if(!result.success||Buffer.from(result.data,'base64').length!==32||result.data===parsed.data)throw Error('Invalid AUTH_MFA_KEY configuration');mfaKey=Buffer.from(result.data,'base64')}
+  else if(environment.NODE_ENV==='production')throw Error('Missing AUTH_MFA_KEY configuration')
   let deliver: TokenDelivery | undefined
   let verifyDelivery: (()=>Promise<void>) | undefined
   const smtpNames=Object.keys(smtp.shape)
@@ -41,5 +44,5 @@ export function configuredAuth(pool: Pool, environment: NodeJS.ProcessEnv): Auth
       if (!result.accepted?.length || result.rejected?.length) throw new Error('Account email was not accepted by transport')
     }
   }
-  return new AuthService(pool,Buffer.from(parsed.data,'base64'),deliver,verifyDelivery)
+  return new AuthService(pool,Buffer.from(parsed.data,'base64'),deliver,verifyDelivery,mfaKey)
 }

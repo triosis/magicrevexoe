@@ -59,6 +59,20 @@ export function authRoutes(service?: AuthService) {
     } catch(error) {response.set('Retry-After','900');throw error}
     response.json(await service.login(input.email,input.password))
   })
+  const factor=z.string().regex(/^(?:[0-9]{6}|[A-Za-z0-9_-]{32})$/)
+  const challengeInput=z.object({challengeToken:opaque,code:factor}).strict()
+  router.post('/mfa/enrollment',async(request,response)=>{
+    const input=body(z.object({challengeToken:opaque}).strict(),request.body)
+    response.type('png').send(await service.enrollMfa(input.challengeToken))
+  })
+  for(const [path,enroll] of [['/mfa/activate',true],['/mfa/verify',false]] as const)router.post(path,async(request,response)=>{
+    const input=body(challengeInput,request.body)
+    response.json(await service.verifyMfa(input.challengeToken,input.code,enroll))
+  })
+  for(const [path,disable] of [['/mfa/disable',true],['/mfa/recovery-codes',false]] as const)router.post(path,authenticated,async(request,response)=>{
+    const input=body(z.object({password:z.string().min(1).max(128),code:factor}).strict(),request.body)
+    response.json(await service.manageMfa(principalFrom(response.locals),input.password,input.code,disable))
+  })
   router.post('/refresh',async(request,response)=>{
     const input=body(refresh,request.body)
     response.json(await service.refresh(input.refreshToken))

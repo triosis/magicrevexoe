@@ -1,5 +1,32 @@
 # Task 05 authentication and authorization security report
 
+## Task 16 security update (2026-11-05)
+
+Historical MFA-absent statements below are superseded by the implemented controls
+in [mfa-implementation-report.md](mfa-implementation-report.md). Super Admin
+password login now issues only a five-minute challenge. Middleware, refresh,
+tenant selection and transaction actor validation reject unverified platform
+sessions, including after role elevation. Verified state is checked in MariaDB,
+not trusted from a JWT claim alone. Active role/permissions are revalidated for
+factor management. Non-platform login remains compatible.
+
+Secrets are AES-256-GCM encrypted with user-bound AAD and an independent required
+production key. Raw enrollment data reaches only the protected QR image;
+one-time recovery codes are shown once, stored as high-entropy digests, and never
+logged. Persistent attempt caps, replayed-step rejection and atomic recovery
+consumption protect factor verification. Password reset preserves enabled MFA.
+Activation, disablement and regeneration revoke all existing user sessions.
+No automatic MFA bypass or new transaction retries exist. Task 15's platform
+point-lock ordering remains unchanged and is regression-tested.
+
+Production key custody/rotation, supervised initial enrollment, administrator
+identity recovery policy, reliable clock synchronization, HTTPS/CORS/provider
+configuration and shared edge throttling still need operator validation.
+TOTP is not phishing resistant; this is not a WebAuthn claim. Refresh storage
+remains XSS-readable sessionStorage. No cookies are introduced; no cookie-CSRF
+protection is claimed. SMTP delivery remains externally unverified.
+
+
 Task 06 update: the historical invitation/provisioning API gap below is now
 addressed by tenants-api.md and tenants-security-report.md. Transaction-aware
 authorization helpers and verified invitation delivery reuse this foundation.

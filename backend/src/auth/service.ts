@@ -1,3 +1,5 @@
+import {MfaFactors} from './mfa.js'
+import type {Database} from './database.js'
 import { randomBytes } from 'node:crypto'
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { RequestHandler } from 'express'
@@ -11,20 +13,73 @@ import {FeedbackTokens} from '../feedback/tokens.js'
 import {quotas} from '../subscriptions/quota.js'
 
 type User = RowDataPacket & { id: string; email: string; password_hash: string | null; status: string; auth_version: number; email_verified_at: Date | null }
-type Session = RowDataPacket & { id: string; user_id: string; family_id: Buffer; auth_version: number; expires_at: Date; revoked_at: Date | null; valid: number }
+type Session = RowDataPacket & { id: string; user_id: string; family_id: Buffer; auth_version: number; expires_at: Date; revoked_at: Date | null; valid: number; mfa_verified:number; challenge_only:number }
 export type TokenDelivery = (message: { email: string; token: string; purpose: 'reset_password' | 'invite' }) => Promise<void>
 function invalid(): never { throw new HttpError(401, 'Invalid credentials') }
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase()
 
 export class AuthService {
+  readonly mfa:MfaFactors
   readonly feedbackTokens:FeedbackTokens
   readonly authorization: Authorization
   private readonly tokens: AccessTokens
-  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>) {
+  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>, mfaKey?:Uint8Array) {
+    this.mfa=new MfaFactors(mfaKey)
     this.feedbackTokens=new FeedbackTokens(key)
     this.tokens = new AccessTokens(key)
     this.authorization = new Authorization(pool)
   }
+
+  async requiresMfa(db:Database,user:string){return !!(await select(db,"SELECT m.id FROM tenant_memberships m JOIN roles r ON r.id=m.role_id WHERE m.user_id=? AND m.status='active' AND m.tenant_kind='platform' AND r.code='super_admin' LIMIT 1",[user]))[0]}
+  private async challengeUser(token:string){
+    const hint=(await select(this.pool,'SELECT user_id FROM auth_sessions WHERE token_hash=?',[tokenDigest(token)]))[0]
+    if(!hint)invalid()
+    return hint.user_id as string
+  }
+  private async challenge(db:PoolConnection,token:string,userId:string){
+    const user=await this.lockedUser(db,userId);this.usable(user)
+    const session=(await select(db,'SELECT * FROM auth_sessions WHERE token_hash=? AND user_id=? AND challenge_only=TRUE AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) AND auth_version=? FOR UPDATE',[tokenDigest(token),user.id,user.auth_version]))[0]
+    if(!session||!await this.requiresMfa(db,user.id))invalid()
+    this.mfa.available()
+    return {user,session}
+  }
+  async enrollMfa(challengeToken:string){const userId=await this.challengeUser(challengeToken);return transaction(this.pool,async db=>{const {user,session}=await this.challenge(db,challengeToken,userId);const qr=await this.mfa.enroll(db,user.id,session.id,user.email);await this.audit(db,user.id,'auth.mfa_enrollment_started');return qr})}
+  async verifyMfa(challengeToken:string,code:string,enroll=false){
+    const userId=await this.challengeUser(challengeToken)
+    const result=await transaction(this.pool,async db=>{
+      const {user,session}=await this.challenge(db,challengeToken,userId)
+      const verified=await this.mfa.verify(db,user.id,session.id,code,enroll)
+      if(!verified){await this.audit(db,user.id,'auth.mfa_rejected');return null}
+      await db.execute('UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,UTC_TIMESTAMP(6)) WHERE user_id=?'+(enroll?'':' AND id=?'),enroll?[user.id]:[user.id,session.id])
+      const recoveryCodes=enroll?await this.mfa.recoveryCodes(db,user.id):undefined
+      await this.audit(db,user.id,enroll?'auth.mfa_enabled':verified.recovery?'auth.mfa_recovery_used':'auth.mfa_verified')
+      return {...await this.response(await this.session(db,user,undefined,undefined,true)),...(recoveryCodes?{recoveryCodes}:{})}
+    })
+    if(!result)invalid()
+    return result
+  }
+  async manageMfa(principal:Principal,password:string,code:string,disable=false){
+    const result=await transaction(this.pool,async db=>{
+      const user=await this.lockedUser(db,principal.identity.sub);this.usable(user)
+      const session=(await select(db,'SELECT id FROM auth_sessions WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) AND auth_version=? AND mfa_verified=TRUE AND challenge_only=FALSE',[principal.identity.sid,user.id,user.auth_version]))[0]
+      if(!session||principal.identity.av!==user.auth_version||principal.identity.amr.length!==2||!await this.requiresMfa(db,user.id))invalid()
+      const platformMember=(await select(db,"SELECT id FROM tenant_memberships WHERE user_id=? AND tenant_kind='platform' AND status='active'",[user.id]))[0]
+      if(!platformMember)invalid()
+      this.authorization.platform(await this.authorization.membership(user.id,platformMember.id,db))
+      if(!await verifyPassword(user.password_hash,password)){await this.mfa.verify(db,user.id,principal.identity.sid,'invalid');await this.audit(db,user.id,'auth.mfa_rejected');return null}
+      const verified=await this.mfa.verify(db,user.id,principal.identity.sid,code)
+      if(!verified){await this.audit(db,user.id,'auth.mfa_rejected');return null}
+      let recoveryCodes:string[]|undefined
+      if(disable){await db.execute('UPDATE user_mfa SET secret_cipher=NULL,enabled_at=NULL,last_step=NULL,pending_cipher=NULL,pending_session_id=NULL,pending_expires_at=NULL WHERE user_id=?',[user.id]);await db.execute('UPDATE mfa_recovery_codes SET consumed_at=COALESCE(consumed_at,UTC_TIMESTAMP(6)) WHERE user_id=?',[user.id])}
+      else recoveryCodes=await this.mfa.recoveryCodes(db,user.id)
+      await db.execute('UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,UTC_TIMESTAMP(6)) WHERE user_id=?',[user.id])
+      await this.audit(db,user.id,disable?'auth.mfa_disabled':'auth.mfa_recovery_regenerated')
+      return {recoveryCodes:recoveryCodes??[]}
+    })
+    if(!result)invalid()
+    return result
+  }
+
   invitationDelivery(): InvitationDelivery | undefined {
     if (!this.deliver || !this.verifyDelivery) return undefined
     return {kind:'smtp',verify:this.verifyDelivery,send:this.deliver}
@@ -43,7 +98,7 @@ export class AuthService {
     await connection.execute(`INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata)
       VALUES (?,?,?,?,?,?,'user',?,?,'success','{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16)])
   }
-  private async session(connection: PoolConnection, user: User, family: Buffer = randomBytes(16), expires?: Date) {
+  private async session(connection: PoolConnection, user: User, family: Buffer = randomBytes(16), expires?: Date, verified=false, challenge=false) {
     const refreshToken = opaqueToken()
     const digest = tokenDigest(refreshToken)
     if (expires) {
@@ -52,7 +107,8 @@ export class AuthService {
       await connection.execute(`INSERT INTO auth_sessions(user_id,token_hash,family_id,expires_at,auth_version) VALUES (?,?,?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY),?)`,[user.id,digest,family,user.auth_version])
     }
     const row = (await select(connection,'SELECT id FROM auth_sessions WHERE token_hash=?',[digest]))[0]!
-    return { refreshToken, identity: { sub:user.id,sid:row.id as string,av:user.auth_version,amr:['pwd'] as ['pwd'] } }
+    await connection.execute('UPDATE auth_sessions SET mfa_verified=?,challenge_only=? WHERE id=?',[verified,challenge,row.id])
+    return { refreshToken, identity: { sub:user.id,sid:row.id as string,av:user.auth_version,amr:verified?['pwd','mfa'] as ['pwd','mfa']:['pwd'] as ['pwd'] } }
   }
   private async response(session: Awaited<ReturnType<AuthService['session']>>) {
     return { accessToken:await this.tokens.issue(session.identity),refreshToken:session.refreshToken,tokenType:'Bearer',expiresIn:300 }
@@ -65,11 +121,14 @@ export class AuthService {
       const user = await this.lockedUser(connection,candidate.id)
       this.usable(user)
       if (user.password_hash !== candidate.password_hash || user.auth_version !== candidate.auth_version) invalid()
-      const session = await this.session(connection,user)
+      const required=await this.requiresMfa(connection,user.id)
+      if(required)this.mfa.available()
+      const session = await this.session(connection,user,undefined,required?new Date(Date.now()+5*60_000):undefined,false,required)
       await connection.execute('UPDATE users SET last_login_at=UTC_TIMESTAMP(6) WHERE id=?',[user.id])
-      await this.audit(connection,user.id,'auth.login')
+      await this.audit(connection,user.id,required?'auth.primary_verified':'auth.login')
       return session
     })
+    if(await this.requiresMfa(this.pool,session.identity.sub))return {mfaRequired:true as const,challengeToken:session.refreshToken,enrollmentRequired:!await this.mfa.enabled(this.pool,session.identity.sub)}
     return this.response(session)
   }
   async refresh(token: string) {
@@ -88,9 +147,10 @@ export class AuthService {
         return null
       }
       this.usable(user)
+      if (old.challenge_only || (await this.requiresMfa(connection,user.id)&&!old.mfa_verified)) invalid()
       if (!Number(old.valid) || old.auth_version !== user.auth_version) invalid()
       await connection.execute('UPDATE auth_sessions SET revoked_at=UTC_TIMESTAMP(6),last_used_at=UTC_TIMESTAMP(6) WHERE id=?',[old.id])
-      const session = await this.session(connection,user,old.family_id,old.expires_at)
+      const session = await this.session(connection,user,old.family_id,old.expires_at,!!old.mfa_verified)
       await this.audit(connection,user.id,'auth.refresh')
       return session
     })
@@ -99,10 +159,10 @@ export class AuthService {
   }
   async authenticate(accessToken: string): Promise<Principal> {
     const identity = await this.tokens.verify(accessToken)
-    const row = (await select(this.pool,`SELECT u.status,u.auth_version,u.email_verified_at,s.auth_version AS session_version
+    const row = (await select(this.pool,`SELECT u.status,u.auth_version,u.email_verified_at,s.auth_version AS session_version,s.mfa_verified,s.challenge_only
       FROM users u JOIN auth_sessions s ON s.user_id=u.id
       WHERE u.id=? AND s.id=? AND s.revoked_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6)`,[identity.sub,identity.sid]))[0]
-    if (!row || row.status!=='active' || !row.email_verified_at || row.auth_version!==identity.av || row.session_version!==identity.av) throw new HttpError(401,'Authentication required')
+    if (!row || row.challenge_only || (await this.requiresMfa(this.pool,identity.sub)&&(!row.mfa_verified||identity.amr.length!==2)) || row.status!=='active' || !row.email_verified_at || row.auth_version!==identity.av || row.session_version!==identity.av) throw new HttpError(401,'Authentication required')
     const principal: Principal = {identity}
     if (identity.mid) principal.membership = await this.authorization.membership(identity.sub,identity.mid)
     return principal
@@ -116,6 +176,7 @@ export class AuthService {
     }
   }
   async selectTenant(principal: Principal, membershipId: string) {
+    await this.authenticate(await this.tokens.issue(principal.identity))
     const member = await this.authorization.membership(principal.identity.sub,membershipId)
     await transaction(this.pool,c=>this.audit(c,principal.identity.sub,'auth.select_tenant',member))
     return { accessToken:await this.tokens.issue({...principal.identity,mid:membershipId}),tokenType:'Bearer',expiresIn:300,membership:member }
@@ -128,7 +189,7 @@ export class AuthService {
       try { memberships.push(await this.authorization.membership(principal.identity.sub,candidate.id)) }
       catch(error) { if (!(error instanceof HttpError) || error.status!==403) throw error }
     }
-    return { user:{id:principal.identity.sub,publicId:(user.public_id as Buffer).toString('hex'),email:user.email,displayName:user.display_name},memberships,selectedMembership:principal.membership ?? null,amr:['pwd'],mfaImplemented:false }
+    return { user:{id:principal.identity.sub,publicId:(user.public_id as Buffer).toString('hex'),email:user.email,displayName:user.display_name},memberships,selectedMembership:principal.membership ?? null,amr:principal.identity.amr,mfaImplemented:true }
   }
   async logout(principal: Principal): Promise<void> {
     await transaction(this.pool,async connection=>{

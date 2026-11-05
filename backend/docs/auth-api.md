@@ -1,5 +1,60 @@
 # Authentication API v1
 
+## Task 16 current MFA contract (2026-11-05)
+
+This section supersedes historical password-only/MFA-absent statements below.
+Apply additive migrations 000064?000066 only through an authorized release process;
+this implementation ran them only against disposable local MariaDB 11.8.9.
+Production startup now requires AUTH_ACCESS_SECRET (32?128 random bytes, canonical
+base64) and independent AUTH_MFA_KEY (exactly 32 random bytes, canonical base64).
+Malformed, repetitive, equal or missing required secrets fail with safe errors.
+Development without MFA encryption configuration fails Super Admin login closed.
+
+An identity with an active platform super_admin membership receives from POST
+/login only {mfaRequired:true, challengeToken, enrollmentRequired}. The opaque
+challenge is hashed in auth_sessions, expires in five minutes, cannot refresh,
+and cannot authenticate any ordinary/privileged endpoint. No access or refresh
+credential is issued until factor verification. Role elevation also invalidates
+password-only access and refresh paths. Non-platform identities retain their
+existing password flow. GET /me now returns mfaImplemented=true and session amr;
+verified sessions use [pwd,mfa], covering TOTP or recovery possession.
+
+All paths below are relative to /api/v1/auth; bodies reject unknown properties.
+
+| Method/path | Body/authentication | Result |
+| --- | --- | --- |
+| POST /mfa/enrollment | challengeToken from password login | Private PNG QR; pending enrollment only; repeat requests for the same live challenge return the same QR |
+| POST /mfa/activate | challengeToken, code (six decimal digits) | Verify pending TOTP, enable MFA, revoke prior sessions, issue verified token pair and ten once-shown recoveryCodes |
+| POST /mfa/verify | challengeToken, code (six digits or 32-character recovery code) | Consume factor/challenge atomically; issue verified token pair |
+| POST /mfa/recovery-codes | Verified Bearer, current password, code | Fresh possession proof, invalidate prior recovery codes, return ten replacements, revoke all sessions; sign in again |
+| POST /mfa/disable | Verified Bearer, current password, code | Current platform role/permission required; invalidate factors/codes/sessions; next Super Admin login must enroll again |
+
+TOTP: OTPAuth, SHA-1, six digits, 30 seconds, ?1 step for clock drift; globally
+reject a previously accepted or older step. Recovery codes carry 192 random bits
+and only SHA-256 hashes persist. Codes are case-sensitive, single-use, one display.
+There is no unauthenticated administrative reset or recovery bypass. Password
+reset never disables MFA. Lost factors AND recovery codes require a separately
+approved operator identity-recovery procedure; no such bypass is implemented.
+
+The enrollment QR necessarily carries the shared secret for the authenticator.
+It is delivered only as a no-store PNG over the password-authenticated challenge,
+never as raw seed/otpauth JSON, public URL, external QR service or log entry.
+Treat QR/screenshots as credentials; serve only through HTTPS and trusted UI.
+The React client keeps challenges and recovery codes in memory, displays the QR
+and once-only codes, and stores refresh credentials only after successful MFA.
+
+Invalid factors return generic 401; five failed attempts lock MFA for fifteen
+minutes in MariaDB across processes/restarts/new challenges. Failed-attempt audit
+and lockout updates commit before returning 401. Existing bounded IP/login limits
+also apply. 429 indicates lockout/throttling; 503 indicates unavailable key/service.
+Enrollment, activation, verification, recovery use/regeneration and disablement
+have atomic safe audit events. Refresh retains verified MFA state and strict
+family replay revocation. Seven-day absolute session lifetime remains unchanged.
+
+See [MFA implementation evidence](mfa-implementation-report.md) and
+[secret rotation runbook](secret-rotation-runbook.md). Production is not certified.
+
+
 Task 13 now enforces the five existing quotas at service transaction boundaries.
 See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
 are historical; merchant subscription/counters must precede first admin acceptance

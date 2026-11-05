@@ -6,7 +6,7 @@ import {createServer} from 'node:http'
 import {randomBytes} from 'node:crypto'
 import {createDatabasePool} from '../dist/db/pool.js'
 import {loadMigrations,runMigrations} from '../dist/migrations/runner.js'
-import {AuthService} from '../dist/auth/service.js'
+import {AuthService} from './mfa-fixtures.mjs'
 import {hashPassword} from '../dist/auth/passwords.js'
 import {opaqueToken,tokenDigest} from '../dist/auth/tokens.js'
 import {createApp} from '../dist/app.js'
@@ -64,7 +64,7 @@ test('authentication and authorization on disposable MariaDB 11.8.9',{timeout:12
    const selected=await request('select-tenant',{membershipId:members.merchant},result.body.accessToken)
    assert.equal(selected.status,200)
    const me=await request('me',undefined,selected.body.accessToken)
-   assert.equal(me.status,200);assert.equal(me.body.selectedMembership.tenantId,merchantA);assert.equal(me.body.mfaImplemented,false)
+   assert.equal(me.status,200);assert.equal(me.body.selectedMembership.tenantId,merchantA);assert.equal(me.body.mfaImplemented,true)
    assert.equal((await request('select-tenant',{membershipId:members.merchant,role_id:roleIds.super_admin},result.body.accessToken)).status,400)
    assert.equal((await request('me',undefined,undefined,{Cookie:'accessToken='+result.body.accessToken})).status,401)
   })

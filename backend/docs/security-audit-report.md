@@ -1,5 +1,19 @@
 # Task 14 security audit
 
+## Task 16 local remediation update (2026-11-05)
+
+C2's platform MFA implementation gap is addressed locally: protected TOTP QR
+activation, password-to-MFA challenges, DB-backed session assurance, hashed
+single-use recovery codes, persistent account lockout, secure reauthentication
+and all-session revocation on factor changes. See
+[mfa-implementation-report.md](mfa-implementation-report.md). This supersedes
+historical password-only findings below, without claiming deployment or external
+security certification. C1 secret rotation remains externally unverified; the
+new [rotation runbook](secret-rotation-runbook.md) records required operator work.
+No production secret, configuration or migration changed. Task 15's concurrency
+fix is preserved. All other registered blockers remain open.
+
+
 Task 15 update (2026-11-05): the identified root-lock inversion is corrected
 locally using one shared unique platform_slot lookup/projection, without automatic
 retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)
