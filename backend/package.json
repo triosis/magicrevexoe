@@ -22,6 +22,7 @@
     "test:business:integration": "npm run build && node --test test/business.integration.mjs",
     "test:funnels:integration": "npm run build && node --test test/funnels.integration.mjs",
     "test:feedback:integration": "npm run build && node --test test/feedback.integration.mjs",
+    "test:feedback:concurrency": "npm run build && node --test test/feedback-concurrency.integration.mjs",
     "test:subscriptions:integration": "npm run build && node --test test/subscriptions.integration.mjs",
     "test:quotas:integration": "npm run build && node --test test/quotas.integration.mjs",
     "test": "npm run build && node --test test/*.test.mjs"

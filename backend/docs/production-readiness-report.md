@@ -1,5 +1,12 @@
 # Task 14 production-readiness audit
 
+Task 15 update (2026-11-05): the identified root-lock inversion is corrected
+locally using one shared unique platform_slot lookup/projection, without automatic
+retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)
+for captured 1213/40001 engine evidence, deterministic tests and repeated stress.
+Historical Task 14 failure evidence below is preserved; other release blockers remain.
+
+
 Date: 2026-11-05. **NOT READY — CRITICAL BLOCKERS**.
 
 The current application has substantial local functional/security coverage, but

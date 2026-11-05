@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import { HttpError } from '../middleware/error-handler.js'
-import { select,transaction } from '../auth/database.js'
+import { select,transaction,lockPlatform } from '../auth/database.js'
 import { AuthService,normalizeEmail } from '../auth/service.js'
 import type { Membership,Principal,Kind } from '../auth/authorization.js'
 import { opaqueToken,tokenDigest } from '../auth/tokens.js'
@@ -36,7 +36,7 @@ export class TenantService {
    return await transaction(this.pool,async db=>{
     const user=(await select(db,`SELECT status,auth_version,email_verified_at FROM users WHERE id=? ${readOnly?'LOCK IN SHARE MODE':'FOR UPDATE'}`,[principal.identity.sub]))[0]
     if(!user||user.status!=='active'||!user.email_verified_at||user.auth_version!==principal.identity.av)throw new HttpError(401,'Authentication required')
-    const root=(await select(db,`SELECT id,status FROM tenants WHERE kind='platform' ${readOnly?'LOCK IN SHARE MODE':'FOR UPDATE'}`))[0]
+    const root=await lockPlatform(db,!readOnly)
     if(!root||root.status!=='active')denied()
     const session=(await select(db,'SELECT id FROM auth_sessions WHERE id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) AND auth_version=?',[principal.identity.sid,principal.identity.sub,principal.identity.av]))[0]
     if(!session)throw new HttpError(401,'Authentication required')

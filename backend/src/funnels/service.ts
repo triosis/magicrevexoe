@@ -1,6 +1,6 @@
 import {randomBytes} from 'node:crypto'
 import type {Pool,PoolConnection,RowDataPacket} from 'mysql2/promise'
-import {select,transaction} from '../auth/database.js'
+import {select,transaction,lockPlatform} from '../auth/database.js'
 import type {AuthService} from '../auth/service.js'
 import type {Principal} from '../auth/authorization.js'
 import {TenantService,tenantScopeSQL,type TenantActor,type Page} from '../tenants/service.js'
@@ -126,7 +126,7 @@ export class FunnelService{
  private async publicRecord(db:PoolConnection,code:string,write=false){
   if(!shortCode.safeParse(code).success)unavailable()
   // Shared root lock serializes these reads/events against existing manager writes.
-  const root=(await select(db,`SELECT id FROM tenants WHERE kind='platform' AND status='active' ${write?'FOR UPDATE':'LOCK IN SHARE MODE'}`))[0];if(!root)unavailable()
+  const root=await lockPlatform(db,write);if(!root||root.status!=='active')unavailable()
   const f=(await select(db,`SELECT f.id AS funnel_id,f.industry_channel_id,l.id AS link_id,l.tenant_id,l.branch_id,t.name AS merchant_name,b.name AS branch_name,b.address,b.timezone,c.code AS channel_code,c.name AS channel_name,v.version,v.public_copy,v.feedback_labels,f.revision,f.brand_title,f.accent_hex,f.locale,d.place_id,d.review_url FROM short_links l JOIN tenants t ON t.id=l.tenant_id AND t.kind='merchant' JOIN branches b ON b.tenant_id=l.tenant_id AND b.id=l.branch_id JOIN funnel_configurations f ON f.tenant_id=l.tenant_id AND f.branch_id=l.branch_id AND f.id=l.funnel_configuration_id JOIN channel_versions v ON v.id=f.channel_version_id AND v.industry_channel_id=f.industry_channel_id JOIN industry_channels c ON c.id=f.industry_channel_id JOIN review_destinations d ON d.tenant_id=f.tenant_id AND d.branch_id=f.branch_id AND d.id=f.review_destination_id WHERE l.code=? AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>UTC_TIMESTAMP(6)) AND b.status='active' AND t.status='active' AND f.status='published' AND v.status='published' AND c.status='active' AND d.status='active'`,[code]))[0]
   if(!f)unavailable()
   try{await this.auth.authorization.ancestors(f.tenant_id,db);destinationInput(f.place_id,f.review_url)}catch(error){if(error instanceof HttpError)unavailable();throw error}

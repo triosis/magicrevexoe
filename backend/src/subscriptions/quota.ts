@@ -1,6 +1,6 @@
 import {randomBytes} from 'node:crypto'
 import type {PoolConnection} from 'mysql2/promise'
-import {select} from '../auth/database.js'
+import {select,lockPlatform} from '../auth/database.js'
 import {HttpError} from '../middleware/error-handler.js'
 import {periodKeys,periodState,type Metric} from './model.js'
 
@@ -23,7 +23,7 @@ export class QuotaService{
   return String((await select(db,sql[metric],[tenant,...(metric==='feedback_submissions'?[start,end]:[])]))[0]!.n)
  }
  private async state(db:PoolConnection,tenant:string,metric:Metric){
-  await select(db,"SELECT id FROM tenants WHERE kind='platform' FOR UPDATE")
+  await lockPlatform(db)
   const chain=await select(db,"WITH RECURSIVE chain AS (SELECT id,parent_id,status,kind,0 AS depth FROM tenants WHERE id=? UNION ALL SELECT t.id,t.parent_id,t.status,t.kind,c.depth+1 FROM tenants t JOIN chain c ON t.id=c.parent_id WHERE c.depth<3) SELECT * FROM chain",[tenant])
   if(!chain.length||chain[0]!.kind!=='merchant'||!chain.some(r=>r.kind==='platform')||chain.some(r=>r.status!=='active'))throw new QuotaError('SUBSCRIPTION_INACTIVE',metric)
   const s=(await select(db,`SELECT *,${periodKeys},${periodState} FROM subscriptions WHERE tenant_id=? ORDER BY (current_slot IS NOT NULL) DESC,id DESC LIMIT 1 FOR UPDATE`,[tenant]))[0]

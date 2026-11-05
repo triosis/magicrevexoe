@@ -1,5 +1,12 @@
 # Private feedback API v1
 
+Task 15 update (2026-11-05): the identified root-lock inversion is corrected
+locally using one shared unique platform_slot lookup/projection, without automatic
+retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)
+for captured 1213/40001 engine evidence, deterministic tests and repeated stress.
+Historical Task 14 failure evidence below is preserved; other release blockers remain.
+
+
 Task 13 now enforces the five existing quotas at service transaction boundaries.
 See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
 are historical; merchant subscription/counters must precede first admin acceptance

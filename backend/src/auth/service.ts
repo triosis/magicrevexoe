@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
 import type { RequestHandler } from 'express'
 import { HttpError } from '../middleware/error-handler.js'
-import { select, transaction } from './database.js'
+import { select, transaction, lockPlatform } from './database.js'
 import { Authorization, type Principal, type Membership } from './authorization.js'
 import { AccessTokens, tokenDigest, opaqueToken } from './tokens.js'
 import { hashPassword, verifyPassword } from './passwords.js'
@@ -38,7 +38,7 @@ export class AuthService {
     if (user.status !== 'active' || !user.email_verified_at || !user.password_hash) invalid()
   }
   private async audit(connection: PoolConnection, userId: string, action: string, member?: Membership): Promise<void> {
-    const root = (await select(connection, "SELECT id FROM tenants WHERE kind='platform'"))[0]
+    const root = (await select(connection, "SELECT id FROM tenants WHERE platform_slot=1"))[0]
     if (!root) throw new HttpError(503, 'Authentication temporarily unavailable')
     await connection.execute(`INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata)
       VALUES (?,?,?,?,?,?,'user',?,?,'success','{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16)])
@@ -167,7 +167,7 @@ export class AuthService {
     const encoded = await hashPassword(password)
     await transaction(this.pool,async connection=>{
       const user = await this.lockedUser(connection,hint.user_id)
-      if(purpose==='invite')await select(connection,"SELECT id FROM tenants WHERE kind='platform' FOR UPDATE")
+      if(purpose==='invite')await lockPlatform(connection)
       const row = (await select(connection,'SELECT *,expires_at>UTC_TIMESTAMP(6) AS valid FROM auth_tokens WHERE token_hash=? AND purpose=? FOR UPDATE',[digest,purpose]))[0]
       if (!row || row.consumed_at || !Number(row.valid)) invalid()
       if (purpose==='reset_password' && user.status!=='active') invalid()

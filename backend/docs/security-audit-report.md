@@ -1,5 +1,12 @@
 # Task 14 security audit
 
+Task 15 update (2026-11-05): the identified root-lock inversion is corrected
+locally using one shared unique platform_slot lookup/projection, without automatic
+retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)
+for captured 1213/40001 engine evidence, deterministic tests and repeated stress.
+Historical Task 14 failure evidence below is preserved; other release blockers remain.
+
+
 2026-11-05. Verdict: **NOT READY — CRITICAL BLOCKERS**.
 Scope is repository review, public primary documentation, dependency-advisory queries
 and disposable local tests. No production system/secret was inspected. Finding IDs,
@@ -48,12 +55,10 @@ provider revocation needs separately authorized evidence, not this audit's acces
 
 ## Reliability findings affecting security/availability
 
-- **H1 / Locally tested only:** concurrent feedback duplicate test deadlocked at
-  funnels/service.ts publicRecord root FOR UPDATE. auth/database.ts transaction
-  rolls back but does not retry; withPublicFunnel has no retry wrapper. TenantService
-  has separate bounded deadlock retries, which do not cover public submission.
-  Isolated recheck passed; original failure remains open. No quota overrun or data
-  corruption was observed. Diagnose actual wait graph before asserting root cause.
+- **H1 / Locally tested only ? remediated in Task 15:** captured legacy scan/index
+  inversion is removed by a shared unique point-lock helper. Three consecutive
+  stress runs add no application engine deadlocks; no automatic retry was added.
+  Historical failure remains valid audit evidence; see the Task 15 report.
 - **H2 / Not implemented:** pool.ts has no SSL/CA/hostname-verification option.
   Prove approved local topology or implement verified TLS before remote DB use.
 - **H4–H6 / Not implemented or Verified as registered:** process-local throttles,
