@@ -1,5 +1,25 @@
 # Task 14 production-readiness audit
 
+## Task 17 current migration status (2026-11-05)
+
+A separate explicit operator workflow now provides non-mutating preflight,
+restricted-grant inspection, approved target/environment selection, pinned-CA
+verified migration TLS, expiring operator approval, production confirmation,
+exclusive locking, applied-prefix structural fingerprints, durable progress audit
+and post-statement verification. The legacy local CLI and all 67 migration files
+remain intact. Restricted migration/runtime accounts and failure boundaries were
+verified on disposable MariaDB 11.8.9 only.
+
+See [migration safety and implementation report](migration-safety-report.md),
+[operator runbook](production-migration-runbook.md) and
+[privilege matrix](database-privilege-matrix.md). Historical absent-executor/drift
+findings below describe earlier tasks. The application still uses SELECT 1
+readiness and has no configured runtime DB TLS path; migration TLS does not close
+that runtime finding. Provider TLS/privileges/definers, actual existing schema/data,
+restore rehearsal and production execution authorization remain unverified.
+**NOT READY - CRITICAL BLOCKERS.** No Hostinger connection or production change.
+
+
 ## Task 16 current status (2026-11-05)
 
 Platform MFA is now implemented and locally tested; historical missing-MFA

@@ -1,5 +1,35 @@
 # Hostinger deployment requirements — Task 14
 
+## Task 17 read-only compatibility handoff
+
+No Hostinger connection is permitted by this task. The new
+[operator runbook](production-migration-runbook.md) and
+[privilege matrix](database-privilege-matrix.md) define the locally tested workflow;
+provider compatibility and production execution remain separately blocked.
+
+- [ ] Verify actual MariaDB version (supported 11.8.x), database/server/account
+  identity, InnoDB defaults, utf8mb4/utf8mb4_unicode_ci, strict SQL mode and enabled
+  FK/CHECK enforcement using authorized read-only inventory.
+- [ ] Review full columns/types/defaults/generated expressions, indexes, FK target
+  schemas/rules, CHECK clauses, trigger bodies/order/SQL modes and allowed definers.
+  Compare with the approved prefix manifest; never baseline unknown existing data.
+- [ ] Verify direct effective migration/runtime grants, PUBLIC/inherited role
+  effects and literal database-grant escaping. Do not assume ALL PRIVILEGES,
+  arbitrary role graphs, global trigger privileges or specific Hostinger grants.
+- [ ] Verify trusted CA chain/hostname and pinned CA bytes, TLS cipher, exact
+  transport target and server identity. Migration transport support does not add
+  application runtime TLS; H2 remains open for remote application connections.
+- [ ] Read-only inventory cannot prove trigger creation, InnoDB rollback, FK/CHECK
+  behavior, named locks across DDL commits, interruption, session affinity or
+  provider execution timeouts. Test those only in a separately authorized
+  disposable provider clone, with backup/restore and failure-recovery evidence.
+- [ ] Agree connection/metadata/row-lock and wall-clock DDL budgets. Local controls
+  bound connection/advisory/metadata/row waits, not total table-copy time.
+- [ ] Approve the restored-clone rehearsal, actual data mapping, maintenance window,
+  complete source/manifest, operator/reviewer and explicit production confirmation.
+  A successful preflight is not a prediction that migration execution will succeed.
+
+
 2026-11-05. **Blocked: NOT READY — CRITICAL BLOCKERS.** This checklist is an
 unexecuted operator handoff, not deployment authorization. No Hostinger account,
 database, domain or environment was accessed/changed. Use the classified register
@@ -40,7 +70,8 @@ in [production-blockers.md](production-blockers.md); all unchecked items need ev
 | DB_HOST / DB_PORT / DB_NAME | Actual provider hostname, port, project schema and approved topology. Do not assume localhost or 3306 solely from examples. No production value read here. | Externally unverified |
 | DB_USER / DB_PASSWORD | Newly rotated restricted runtime identity only; no migration owner in app environment. | Externally unverified |
 | DB_CONNECTION_LIMIT | Per-instance provider budget, default 5, validated 1–50; budget migration/backup/monitoring and all replicas too. No queue in current pool. | Externally unverified |
-| AUTH_ACCESS_SECRET | Fresh operator-generated canonical base64, 32–128 random bytes; synchronized replicas; documented old-key/session revocation. Missing key leaves auth unavailable even if health is green. | Externally unverified |
+| AUTH_ACCESS_SECRET | Fresh operator-generated canonical base64, 32–128 random bytes; synchronized replicas; documented old-key/session revocation. Production requires both access and independent MFA encryption keys at startup. | Externally unverified |
+| AUTH_MFA_KEY | Independently generated canonical base64 32-byte encryption key, separate from access signing; protect key recovery with encrypted backups. | Externally unverified |
 | PUBLIC_FUNNEL_ORIGIN | Exact backend HTTPS origin; QR encodes this plus /api/v1/public/funnels/:code. Never request Host-derived. Origin changes can invalidate asset digests until controlled regeneration. | Externally unverified |
 | PUBLIC_WEB_ORIGIN | Exact frontend HTTPS origin enabling HTML 303 bridge to /r/:code; verify JSON still JSON and unavailable links never redirect. | Externally unverified |
 | AUTH_SMTP_HOST / PORT / USER / PASSWORD | All configured together; port 465 or 587, certificate-verified TLS, restricted rotated credentials. No debug/body logging. | Externally unverified |
@@ -73,12 +104,11 @@ add a separately tested CA/hostname-verified configuration before remote transpo
    triggers, named FKs/CHECKs/generated UNIQUE keys, utf8mb4 collation, UTC session,
    InnoDB rollback, GET_LOCK/IS_USED_LOCK/RELEASE_LOCK and dedicated session affinity
    across commit/disconnect. Single writable primary only. Test runtime denials.
-5. [ ] **Blocked:** current CLI only permits loopback and magicreview_migration_*
-   disposable schemas. Design/review an explicit production executor with target
-   identity confirmation, TLS, locking, immutable checksums and operator controls.
-   Never use a tunnel, fake local name or edited guard to evade this restriction.
+5. [ ] **Locally implemented / provider rollout blocked:** use the new explicit
+   operator CLI and reviewed target policy, preflight, approval, audit and production
+   confirmation. The legacy CLI remains disposable-local only; never bypass it.
 6. [ ] **Blocked:** classify target as genuinely empty versus existing data/ledger.
-   Empty target can rehearse exact 000000–000063 manifest. Existing untracked data
+   Empty target can rehearse the exact 000000-000066 manifest. Existing untracked data
    requires reviewed mappings/collision/orphan/uniqueness checks and additive
    expand/backfill/validate steps; current CREATE statements are not an upgrade
    for unknown existing business tables. Never silently baseline or IF NOT EXISTS.
@@ -95,8 +125,9 @@ add a separately tested CA/hostname-verified configuration before remote transpo
 
 ## Application, operations and compliance acceptance
 
-- [ ] **Not implemented:** enforced platform MFA and secure one-time root/admin
-  bootstrap; do not promote fixture passwords/users into production.
+- [ ] **Locally implemented / externally unverified:** enforce Task 16 platform MFA
+  with independent keys and controlled enrollment. Secure one-time root/admin
+  bootstrap remains absent; never promote fixture accounts to production.
 - [ ] **Blocked:** approve and securely provision immutable plan terms/limits and
   channel versions. Assign merchant subscription/counters before first admin accepts.
   Missing commercial data must remain unavailable; no sample price/quota defaults.

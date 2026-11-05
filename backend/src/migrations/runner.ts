@@ -79,7 +79,13 @@ async function verifyLedger(connection: PoolConnection): Promise<void> {
   if (triggers.length) fail('INCOMPATIBLE_MIGRATION_LEDGER')
 }
 
-export async function runMigrations(pool: Pool, migrations: Migration[], mode: 'status' | 'up', lockTimeout = 5) {
+export type MigrationControls={
+ validateConnection?:(connection:PoolConnection)=>Promise<void>
+ inspect?:(connection:PoolConnection,applied:number)=>Promise<void>
+ progress?:(event:{event:string;version?:string})=>Promise<void>
+ interrupted?:()=>boolean
+}
+export async function runMigrations(pool: Pool, migrations: Migration[], mode: 'status' | 'up', lockTimeout = 5, controls:MigrationControls={}) {
   const connection = await pool.getConnection()
   let locked = false
   let lockName = ''
@@ -100,17 +106,23 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
     // lock waits without changing the application's pooled session settings.
     await connection.query('SET SESSION autocommit=1')
     await connection.query('SET SESSION lock_wait_timeout=10')
+    await connection.query('SET SESSION innodb_lock_wait_timeout=10')
     lockName = `magicreview:migrate:${createHash('sha256').update(String(server.db)).digest('hex').slice(0,40)}`
     const lock = (await rows(connection, 'SELECT GET_LOCK(?, ?) AS acquired', [lockName, lockTimeout]))[0]
     if (Number(lock?.acquired) !== 1) fail('MIGRATION_LOCK_UNAVAILABLE')
     locked = true
+    await controls.validateConnection?.(connection)
     const tables = await rows(connection, 'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()')
     const exists = tables.some(table => table.TABLE_NAME === 'schema_migrations')
     const bootstrap = migrations[0]
     if (!bootstrap || bootstrap.version !== '000000' || bootstrap.name !== 'schema_migrations') fail('MISSING_BOOTSTRAP_MIGRATION')
     if (!exists) {
       if (tables.length) fail('EXISTING_SCHEMA_REQUIRES_BASELINE_REVIEW')
+      await controls.inspect?.(connection,0)
       if (mode === 'status') return { initialized: false, applied: [], pending: migrations.map(file => file.version) }
+      if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
+      await controls.progress?.({event:'step_started',version:bootstrap.version})
+      if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
       // Bootstrap has no ledger yet. A crash in this narrow gap leaves an empty
       // ledger which is deliberately BLOCKED, never silently accepted next run.
       await connection.query(bootstrap.sql)
@@ -119,18 +131,24 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
         (version,name,checksum,status,applied_at,execution_ms,last_verified_step,runner_id)
         VALUES (?,?,?,'applied',CURRENT_TIMESTAMP(6),?,1,?)`,
       [bootstrap.version, bootstrap.name, bootstrap.checksum, Date.now()-started, randomBytes(16)])
+      await controls.inspect?.(connection,1)
+      await controls.progress?.({event:'step_applied',version:bootstrap.version})
     }
     await verifyLedger(connection)
     const history = await rows(connection, 'SELECT version,name,checksum,status FROM schema_migrations ORDER BY version') as LedgerRow[]
     if (!history.length) fail('BOOTSTRAP_INCOMPLETE_REQUIRES_REVIEW')
     validateHistory(migrations, history)
+    await controls.inspect?.(connection,history.length)
     const pending = migrations.slice(history.length)
     if (mode === 'up') {
       for (const migration of pending) {
+        if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
         if (!migration.verify) fail('MISSING_MIGRATION_POSTCONDITION')
         const stepStart = Date.now()
         const owner = (await rows(connection, 'SELECT IS_USED_LOCK(?)=CONNECTION_ID() AS owned', [lockName]))[0]
         if (Number(owner?.owned) !== 1) fail('MIGRATION_LOCK_LOST')
+        await controls.progress?.({event:'step_started',version:migration.version})
+        if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
         await connection.execute(`INSERT INTO schema_migrations (version,name,checksum,status,runner_id) VALUES (?,?,?,'applying',?)`,
           [migration.version,migration.name,migration.checksum,randomBytes(16)])
         activeVersion = migration.version
@@ -139,12 +157,17 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
         await connection.query(migration.sql)
         const verified = await rows(connection, migration.verify)
         if (verified.length !== 1 || Number(verified[0]?.satisfied) !== 1) fail('MIGRATION_POSTCONDITION_FAILED')
+        await controls.inspect?.(connection,Number(migration.version)+1)
+        const stillOwned=(await rows(connection,'SELECT IS_USED_LOCK(?)=CONNECTION_ID() AS owned',[lockName]))[0]
+        if(Number(stillOwned?.owned)!==1)fail('MIGRATION_LOCK_LOST')
         const [result] = await connection.execute<ResultSetHeader>(`UPDATE schema_migrations SET status='applied',applied_at=CURRENT_TIMESTAMP(6),execution_ms=?,last_verified_step=1
           WHERE version=? AND status='applying'`, [Date.now()-stepStart, migration.version])
         if (result.affectedRows !== 1) fail('MIGRATION_LEDGER_UPDATE_FAILED')
         activeVersion = undefined
+        await controls.progress?.({event:'step_applied',version:migration.version})
       }
     }
+    if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
     return { initialized: true, applied: mode === 'up' ? migrations.map(file => file.version) : history.map(row => row.version), pending: mode === 'up' ? [] : pending.map(file => file.version) }
   } catch (error) {
     if (activeVersion) {

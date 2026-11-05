@@ -1,5 +1,16 @@
 # Backup and recovery runbook — Task 14
 
+## Task 17 current schema and key-recovery note
+
+The current 000000-000066 release has 26 tables and 35 triggers, including the
+Task 16 MFA tables. Historical Task 14 counts below must not limit backup/restore
+coverage. Inventory all current objects with the approved schema manifest, and
+restore encrypted MFA state with its matching independently protected encryption
+key. Follow secret-rotation-runbook.md for key custody/rotation consequences.
+Task 17 did not perform a backup, restoration or provider connection; C3 remains
+unverified. Migration forward repair and local DDL tests are not restore evidence.
+
+
 2026-11-05. **Externally unverified / Blocked for production use until rehearsed.**
 This is a proposed operator procedure, not executed backup/restore evidence or
 permission to access production. No actual export, restore, provider snapshot,

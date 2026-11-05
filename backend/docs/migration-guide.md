@@ -1,5 +1,23 @@
 # MariaDB migration foundation
 
+## Task 17 current operator workflow
+
+All 000000-000066 migration/verification files remain unchanged. This guide's
+local-only CLI commands remain supported and retain their guards. A separate
+explicit operator CLI now implements preflight/apply/check-runtime using reviewed
+target policies, exact grant profiles, structural manifests and explicit approval.
+See [production-migration-runbook.md](production-migration-runbook.md) and
+[migration-safety-report.md](migration-safety-report.md). No production migration
+was run and no unknown existing schema is automatically baselined.
+
+Regenerate the reference only through npm.cmd --prefix backend run migrate:manifest
+with MARIADB_TEST_BIN pointing to the local 11.8.9 ZIP distribution. The script
+creates its own disposable instance, applies every prefix, then writes
+schema-manifest.json. Review SQL and all fingerprint changes together. Never
+learn a new expected manifest from a live drifted database. This reference is
+additional to the original immutable SHA-256 ledger checks, not a replacement.
+
+
 Task 05 adds 000063_auth_session_version.sql and matching verification SQL.
 It adds auth_sessions.auth_version, preserving rows with a default 0 that makes
 pre-auth sessions require a new login. Apply before enabling new auth routes,

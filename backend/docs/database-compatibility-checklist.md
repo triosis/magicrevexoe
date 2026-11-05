@@ -1,5 +1,17 @@
 # MagicReview AI — Hostinger database compatibility checklist
 
+## Task 17 current local evidence
+
+Explicit operator preflight/apply and separate least-privilege accounts now pass
+on disposable MariaDB 11.8.9, including all 67 versions, 26 tables and 35 triggers.
+Metadata fingerprints cover every ordered prefix; changed/missing/unexpected
+columns, indexes and trigger definitions fail closed. PUBLIC test-schema grants
+were discovered and rejected rather than ignored. No Hostinger state was inspected
+or changed. Follow [production-migration-runbook.md](production-migration-runbook.md)
+for read-only provider inventory and separately authorized clone write checks.
+Provider grants, TLS, trigger definers, time budgets and restore remain unverified.
+
+
 Task 05 local evidence: all versions through 000063 and the authentication/tenant
 authorization suite pass on disposable MariaDB 11.8.9. Existing schema and runner
 regressions also pass. No Hostinger database, SMTP provider or production secret

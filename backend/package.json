@@ -26,7 +26,11 @@
     "test:subscriptions:integration": "npm run build && node --test test/subscriptions.integration.mjs",
     "test:quotas:integration": "npm run build && node --test test/quotas.integration.mjs",
     "test": "npm run build && node --test test/*.test.mjs",
-    "test:mfa:integration": "npm run build && node --test test/mfa.integration.mjs"
+    "test:mfa:integration": "npm run build && node --test test/mfa.integration.mjs",
+    "migrate:operator": "npm run build && node dist/migrations/operator-cli.js",
+    "migrate:manifest": "npm run build && node scripts/schema-manifest.mjs",
+    "test:migration-safety:integration": "npm run build && node --test test/migration-safety.integration.mjs",
+    "test:integration": "npm run build && node --test --test-concurrency=1 test/*integration.mjs"
   },
   "dependencies": {
     "argon2": "^0.45.2",
