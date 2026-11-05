@@ -1,5 +1,23 @@
 # Task 14 production-readiness audit
 
+## Task 18 current backup/recovery status (2026-11-05)
+
+Actual encrypted native export and import into a separate fresh disposable
+MariaDB 11.8.9 database now pass full schema/row/ledger comparison, 35 trigger,
+36 FK and 34 CHECK validation and restored Express/service application tests.
+This addresses the missing local restore-rehearsal evidence. See
+[backup implementation](backup-implementation-report.md),
+[restore evidence](restore-rehearsal-report.md),
+[disaster recovery procedure](disaster-recovery-runbook.md) and
+[provider checklist](provider-backup-validation.md).
+
+No Hostinger connection, production backup/restore, migration or settings change
+occurred. The execution utility is disposable-local only. Provider export/import,
+real data-volume recovery time, key/off-site/retention operation and owner-approved
+RPO/RTO remain unverified. Historical no-rehearsal statements below describe earlier
+tasks. The release verdict remains **NOT READY - CRITICAL BLOCKERS**.
+
+
 ## Task 17 current migration status (2026-11-05)
 
 A separate explicit operator workflow now provides non-mutating preflight,

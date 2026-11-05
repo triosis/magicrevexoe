@@ -1,5 +1,17 @@
 # Backup and recovery runbook — Task 14
 
+## Task 18 current verified procedure
+
+The current executable local procedure is
+[disaster-recovery-runbook.md](disaster-recovery-runbook.md). An actual encrypted
+native backup and fresh restore of all 26 tables now passes exact row/schema/
+ledger comparison, 35 triggers, 36 FKs, 34 CHECKs and restored application tests.
+See [restore-rehearsal-report.md](restore-rehearsal-report.md). Historical Task 14/
+17 no-rehearsal statements below are retained for their original scope. No
+Hostinger/production backup or restore occurred; provider evidence and accepted
+business RPO/RTO, key custody and off-site retention still remain open.
+
+
 ## Task 17 current schema and key-recovery note
 
 The current 000000-000066 release has 26 tables and 35 triggers, including the

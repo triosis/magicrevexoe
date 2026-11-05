@@ -1,5 +1,26 @@
 # Hostinger deployment requirements — Task 14
 
+## Task 18 backup/restore handoff
+
+The actual local rehearsal now passes on MariaDB 11.8.9; see
+[restore-rehearsal-report.md](restore-rehearsal-report.md). Provider readiness is
+still unverified and no Hostinger connection was made. Use the detailed
+[provider-backup-validation.md](provider-backup-validation.md) checklist before
+separately authorized provider-clone work.
+
+- [ ] Obtain evidence for available export/snapshot facilities, complete trigger/
+  definer coverage, hidden routines/events, export/import size and execution limits.
+- [ ] Verify backup/restore users and PUBLIC/role effects, remote versus local
+  topology, authenticated TLS and independently protected encryption keys/storage.
+- [ ] Prove private/encrypted temporary storage, capacity and off-site/versioned
+  retention with post-transfer authentication and key-recovery checks.
+- [ ] Rehearse actual import, full row/schema/ledger/FK/CHECK/trigger comparison and
+  application/MFA/quota checks at representative provider volume, then approve
+  business RPO/RTO and incident owners. File hashes/download success are insufficient.
+- [ ] Keep production fenced until sign-off. The shipped recovery CLI only accepts
+  disposable local policies; never tunnel or relabel production to bypass it.
+
+
 ## Task 17 read-only compatibility handoff
 
 No Hostinger connection is permitted by this task. The new
