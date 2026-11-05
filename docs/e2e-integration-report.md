@@ -1,5 +1,10 @@
 # Task 12 real end-to-end integration report
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](../backend/docs/quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Verified locally on 2026-11-05. This is bounded local verification, **not production
 readiness or deployment approval**. No Hostinger connection, production credentials,
 production environment files, production migrations, payments or quota enforcement.

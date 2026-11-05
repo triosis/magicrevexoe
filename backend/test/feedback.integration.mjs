@@ -1,3 +1,4 @@
+import {fundTestMerchant} from './quota-fixtures.mjs'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {once} from 'node:events'
@@ -50,6 +51,7 @@ test('private feedback on disposable MariaDB 11.8.9',{timeout:120000},async t=>{
    const mid=await insert('tenant_memberships',{tenant_id:id,tenant_kind:kind,user_id:user,role_id:roles[role],status:'active'}),login=await auth.login(email,password),selected=await auth.selectTenant(await auth.authenticate(login.accessToken),mid)
    actors[key]={token:selected.accessToken,principal:await auth.authenticate(selected.accessToken)}
   }
+  for(const row of await query("SELECT id FROM tenants WHERE kind='merchant'"))await fundTestMerchant(pool,row.id)
   server=createServer(createApp({env,auth,tenants,business,funnels,feedback,checkDatabase:async()=>{},isShuttingDown:()=>false}));server.listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port
   await t.test('anonymous submissions work for every channel with safe confirmations and immutable ownership',async()=>{
    for(const c of cases){
@@ -145,7 +147,8 @@ test('private feedback on disposable MariaDB 11.8.9',{timeout:120000},async t=>{
    assert.equal(visible.length,2);assert.ok(visible.every(f=>!cases.some(c=>c.merchant===f.merchantId)))
    await query("UPDATE tenants SET status='active' WHERE id=?",[sub])
   })
-  await t.test('usage is counted once in a current subscription without inventing pre-billing records',async()=>{
+  await t.test('usage is counted once in a configured current subscription',async()=>{
+   await query("UPDATE subscriptions SET status='canceled',ends_at=UTC_TIMESTAMP(6) WHERE tenant_id=? AND current_slot=1",[cases[0].merchant])
    const c=cases[0],plan=await insert('subscription_plans',{code:'fixture',version:1,name:'Fixture',price:'0.00',currency:'INR',interval_unit:'month'})
    for(const metric of ['branches','staff_seats','feedback_submissions','short_links','qr_assets'])await insert('plan_limits',{plan_id:plan,metric,limit_value:null})
    await query("UPDATE subscription_plans SET status='published' WHERE id=?",[plan])

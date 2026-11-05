@@ -1,5 +1,10 @@
 # Authentication API v1
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 07 adds merchant, channel, branch and destination APIs documented in
 [business-api.md](business-api.md). Historical Task 05 statements below about
 absent business endpoints describe that earlier task, not the current API.

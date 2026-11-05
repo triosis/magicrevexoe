@@ -7,6 +7,10 @@ export class HttpError extends Error {
 export const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, next) => {
   if (response.headersSent) { next(error); return }
   if (error instanceof HttpError) {
+    if ('code' in error && 'metric' in error && 'limit' in error && 'used' in error && 'remaining' in error && 'limitMode' in error) {
+      const anonymous=_request.path.startsWith('/api/v1/public/')
+      response.status(error.status).json({error:error.message,code:error.code,metric:error.metric,limit:anonymous?null:error.limit,used:anonymous?null:error.used,remaining:anonymous?null:error.remaining,limitMode:anonymous?'unavailable':error.limitMode});return
+    }
     response.status(error.status).json({ error: error.message })
     return
   }

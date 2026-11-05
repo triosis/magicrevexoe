@@ -1,5 +1,10 @@
 # Private feedback API v1
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 09, implemented locally on 2026-11-04. Prefix `/api/v1`. No frontend or
 production change. See [feedback-security-report.md](feedback-security-report.md)
 and [feedback-implementation-report.md](feedback-implementation-report.md).

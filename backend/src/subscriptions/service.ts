@@ -3,6 +3,7 @@ import type {Principal} from '../auth/authorization.js'
 import {select,type Values} from '../auth/database.js'
 import {TenantService,type TenantActor,type Account,type Page} from '../tenants/service.js'
 import {HttpError} from '../middleware/error-handler.js'
+import {quotas} from './quota.js'
 import {metrics,periodKeys,periodState,dateKey,quota,transition,type Metric,type Assignment,type Status,type HistoryInput} from './model.js'
 
 type Sub=RowDataPacket&{id:string;tenant_id:string;plan_id:string;status:Status;lock_version:number;period_start_key:string;period_end_key:string}
@@ -34,14 +35,7 @@ export class SubscriptionService{
  async current(principal:Principal,id:string){return this.tenants.withActor(principal,async(db,actor)=>{const owner=await this.merchant(db,actor,id),now=await this.clock(db),sub=await this.latest(db,id);return{subscription:sub?await this.dto(db,sub,owner,now):null,availability:sub?'available':'no_subscription',accountAccess:Number(owner.effective)?'active':'suspended',serverTime:now.toISOString()}},true)}
  async history(principal:Principal,id:string,page:Page){return this.tenants.withActor(principal,async(db,actor)=>{const owner=await this.merchant(db,actor,id),now=await this.clock(db),rows=await select<Sub>(db,`SELECT *,${periodKeys},${periodState} FROM subscriptions WHERE tenant_id=? AND id>? ORDER BY id LIMIT ?`,[id,page.afterId??'0',page.limit]);return{subscriptions:await Promise.all(rows.map(s=>this.dto(db,s,owner,now))),nextCursor:rows.length===page.limit?rows.at(-1)!.id:null}},true)}
  private async observed(db:PoolConnection,tenant:string,metric:Metric,start:string,end:string):Promise<string>{
-  const sql:Record<Metric,string>={
-   branches:"SELECT COUNT(*) AS n FROM branches WHERE tenant_id=? AND status='active'",
-   staff_seats:"SELECT COUNT(*) AS n FROM tenant_memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant_id=? AND m.status='active' AND u.status='active'",
-   short_links:"SELECT COUNT(*) AS n FROM short_links l JOIN branches b ON b.tenant_id=l.tenant_id AND b.id=l.branch_id WHERE l.tenant_id=? AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>UTC_TIMESTAMP(6)) AND b.status='active'",
-   qr_assets:"SELECT COUNT(*) AS n FROM qr_assets q JOIN short_links l ON l.tenant_id=q.tenant_id AND l.branch_id=q.branch_id AND l.id=q.short_link_id JOIN branches b ON b.tenant_id=q.tenant_id AND b.id=q.branch_id WHERE q.tenant_id=? AND q.status='ready' AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>UTC_TIMESTAMP(6)) AND b.status='active'",
-   feedback_submissions:'SELECT COUNT(*) AS n FROM private_feedback WHERE tenant_id=? AND submitted_at>=? AND submitted_at<?',
-  }
-  return String((await select(db,sql[metric],[tenant,...(metric==='feedback_submissions'?[start,end]:[])]))[0]!.n)
+  return quotas.observed(db,tenant,metric,start,end)
  }
  private async initialize(db:PoolConnection,actor:TenantActor,owner:Account,sub:Sub,now:Date){
   if(!Number(owner.effective)||!allocated(sub.status)||this.effective(sub,owner,now)==='expired'||this.effective(sub,owner,now)==='scheduled')conflict('Subscription period is not active')
@@ -105,7 +99,7 @@ export class SubscriptionService{
  async usage(principal:Principal,id:string,only?:Metric){return this.tenants.withActor(principal,async(db,actor)=>{
   const owner=await this.merchant(db,actor,id),now=await this.clock(db),sub=await this.latest(db,id)
   if(!sub)return{availability:'no_subscription',subscription:null,metrics:[]}
-  const plan=await this.plan(db,sub.plan_id),effective=this.effective(sub,owner,now),active=['active','trialing','past_due'].includes(effective),rows=[]
+  const plan=await this.plan(db,sub.plan_id),effective=this.effective(sub,owner,now),active=['active','trialing'].includes(effective),rows=[]
   for(const metric of only?[only]:metrics){
    const limitRow=plan.limits.find(l=>l.metric===metric)
    const counter=(await select(db,"SELECT used,DATE_FORMAT(period_end,'%Y-%m-%d %H:%i:%s.%f') AS end_key FROM usage_counters WHERE tenant_id=? AND subscription_id=? AND metric=? AND period_start=?",[id,sub.id,metric,sub.period_start_key]))[0]
@@ -128,6 +122,6 @@ export class SubscriptionService{
   if(input.subscriptionId){where.push('subscription_id=?');values.push(input.subscriptionId)}
   values.push(input.limit)
   const rows=await select(db,`SELECT id,subscription_id,metric,quantity,period_start,period_end,occurred_at,source_event_key FROM usage_records WHERE ${where.join(' AND ')} ORDER BY id LIMIT ?`,values)
-  return{usageRecords:rows.map(r=>({id:r.id,subscriptionId:r.subscription_id,metric:r.metric,quantity:r.quantity,periodStart:r.period_start,periodEnd:r.period_end,occurredAt:r.occurred_at,kind:(r.source_event_key as Buffer).toString().startsWith('init:')?'initial_snapshot':'recorded_event'})),nextCursor:rows.length===input.limit?rows.at(-1)!.id:null,gaugeHistoryCoverage:'initialization_snapshots_only'}
+  return{usageRecords:rows.map(r=>({id:r.id,subscriptionId:r.subscription_id,metric:r.metric,quantity:r.quantity,periodStart:r.period_start,periodEnd:r.period_end,occurredAt:r.occurred_at,kind:(r.source_event_key as Buffer).toString().startsWith('init:')?'initial_snapshot':'recorded_event'})),nextCursor:rows.length===input.limit?rows.at(-1)!.id:null,gaugeHistoryCoverage:'initialization_snapshots_and_reconciliation_events'}
  },true)}
 }

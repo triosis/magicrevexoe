@@ -1,5 +1,10 @@
 # QR, short links and public funnel API
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 10 implements the React customer page at `/r/:code` and adds an optional
 trusted browser bridge. See [frontend integration](../../docs/frontend-integration.md).
 Earlier absence-of-frontend notes below describe the historical task scope.

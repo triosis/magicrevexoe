@@ -3,6 +3,10 @@ import {ApiClient} from '../../src/application/api'
 import {json,me} from './fixtures'
 const key='magicreview.session.v1',refresh='r'.repeat(43),rotated='s'.repeat(43)
 describe('API session client',()=>{
+ it('retains structured quota information and explains the blocked operation',async()=>{
+  const client=new ApiClient('https://api.example.invalid/api/v1',vi.fn(async()=>json({error:'Operation blocked: branches quota exceeded',code:'QUOTA_EXCEEDED',metric:'branches',limit:'2',used:'2',remaining:'0'},409)) as typeof fetch)
+  await expect(client.public('/fixture','POST',{})).rejects.toMatchObject({status:409,quota:{code:'QUOTA_EXCEEDED',metric:'branches',limit:'2',used:'2',remaining:'0'},message:expect.stringContaining('Limit: 2; used: 2; remaining: 0')})
+ })
  it('restores tab sessions and single-flights concurrent refresh, reselecting server membership',async()=>{
   sessionStorage.setItem(key,JSON.stringify({refreshToken:refresh,membershipId:'20'}))
   const calls:string[]=[],transport=vi.fn(async(url,_options)=>{const path=String(url).replace('https://api.example.invalid/api/v1','');calls.push(path);if(path==='/auth/refresh')return json({accessToken:'new',refreshToken:rotated});if(path==='/auth/select-tenant')return json({accessToken:'selected'});return json(me)})

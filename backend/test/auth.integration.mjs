@@ -1,3 +1,4 @@
+import {fundTestMerchant} from './quota-fixtures.mjs'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {once} from 'node:events'
@@ -123,6 +124,7 @@ test('authentication and authorization on disposable MariaDB 11.8.9',{timeout:12
    await assert.rejects(login('direct'));assert.ok(await service.login(users.direct.email,next))
   })
   await t.test('invitation activation is atomic and cannot reuse its token or overwrite an active identity password',async()=>{
+   await fundTestMerchant(pool,merchantA);await fundTestMerchant(pool,merchantB)
    const email='invited@example.invalid',id=await insert('users',{public_id:pair(),email,email_key:Buffer.from(email),display_name:'Invited'})
    const membership=await insert('tenant_memberships',{tenant_id:merchantA,tenant_kind:'merchant',user_id:id,role_id:roleIds.merchant_staff})
    const token=opaqueToken();await insert('auth_tokens',{user_id:id,tenant_id:merchantA,purpose:'invite',token_hash:tokenDigest(token),expires_at:new Date(Date.now()+3600000)})

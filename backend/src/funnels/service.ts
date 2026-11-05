@@ -8,6 +8,7 @@ import {HttpError} from '../middleware/error-handler.js'
 import {destinationInput} from '../business/validation.js'
 import {newShortCode,publicOrigin,shortCode} from './validation.js'
 import {renderQr} from './qr.js'
+import {quotas} from '../subscriptions/quota.js'
 
 type Format='svg'|'png'
 function unavailable():never{throw new HttpError(404,'Funnel unavailable')}
@@ -48,16 +49,20 @@ export class FunnelService{
   await this.tenants.auditChange(db,actor,b.tenant_id,'funnel.published',{},'funnel_configuration',f.id)
   return{id:f.id,revision,status:'published'}
  })}
- async createLink(principal:Principal,branchId:string,funnelId:string){
+ async createLink(principal:Principal,branchId:string,funnelId:string,requestKey?:string){
   // Check configuration before any mutation; generated URLs never use Host headers.
   this.url('configuration-check')
   return this.tenants.withActor(principal,async(db,actor)=>{
    const b=await this.branch(db,actor,branchId,'funnel.manage');await this.validFunnel(db,b,funnelId)
+   if(requestKey&&!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestKey))throw new HttpError(400,'Invalid request key')
+   const requestId=requestKey?Buffer.from(requestKey.replaceAll('-',''),'hex'):undefined
+   if(requestId){const previous=(await select(db,"SELECT l.* FROM audit_logs a JOIN short_links l ON l.tenant_id=a.tenant_id AND l.id=a.resource_id WHERE a.tenant_id=? AND a.request_id=? AND a.action='short_link.created' AND a.resource_type='short_link' LIMIT 1",[b.tenant_id,requestId]))[0];if(previous){if(previous.branch_id!==branchId||previous.funnel_configuration_id!==funnelId)conflict('Request key already used');return this.linkDto(previous)}}
    for(let attempt=0;attempt<5;attempt++){
     const code=newShortCode()
     try{await db.execute('INSERT INTO short_links(tenant_id,branch_id,funnel_configuration_id,code) VALUES (?,?,?,?)',[b.tenant_id,branchId,funnelId,code])}catch(error){if(typeof error==='object'&&error!==null&&'code'in error&&error.code==='ER_DUP_ENTRY')continue;throw error}
     const l=(await select(db,'SELECT * FROM short_links WHERE code=? AND tenant_id=?',[code,b.tenant_id]))[0]!
-    await this.tenants.auditChange(db,actor,b.tenant_id,'short_link.created',{},'short_link',l.id)
+    await quotas.consume(db,b.tenant_id,'short_links',`link:${l.id}`)
+    await this.tenants.auditChange(db,actor,b.tenant_id,'short_link.created',{},'short_link',l.id,requestId)
     return this.linkDto(l)
    }
    throw new HttpError(503,'Short link generation unavailable')
@@ -75,6 +80,8 @@ export class FunnelService{
   const b=await this.branch(db,actor,row.branch_id,'funnel.manage'),l=await this.link(db,b,id)
   if(l.lock_version!==lockVersion||l.status!=='active')conflict('Short link version or status conflict')
   await db.execute("UPDATE short_links SET status='disabled',lock_version=lock_version+1 WHERE id=? AND tenant_id=? AND branch_id=? AND lock_version=?",[id,b.tenant_id,b.id,lockVersion])
+  await quotas.reconcile(db,b.tenant_id,'short_links',`disable:${id}`)
+  await quotas.reconcile(db,b.tenant_id,'qr_assets',`disable:${id}`)
   await this.tenants.auditChange(db,actor,b.tenant_id,'short_link.disabled',{},'short_link',id)
   return{id,status:'disabled',lockVersion:lockVersion+1}
  })}
@@ -95,7 +102,9 @@ export class FunnelService{
     await db.execute("INSERT INTO qr_assets(tenant_id,branch_id,short_link_id,format,object_key,content_sha256,status) VALUES (?,?,?,?,?,?,'ready')",[b.tenant_id,b.id,l.id,input.format,`${b.tenant_id}/${randomBytes(16).toString('hex')}.${input.format}`,rendered.digest])
    }
    const regenerated=!!q
+   const consumes=!q||q.status!=='ready'
    q=(await select(db,'SELECT * FROM qr_assets WHERE tenant_id=? AND branch_id=? AND short_link_id=? AND format=?',[b.tenant_id,b.id,l.id,input.format]))[0]!
+   if(consumes)await quotas.consume(db,b.tenant_id,'qr_assets',`qr:${q.id}`)
    await this.tenants.auditChange(db,actor,b.tenant_id,regenerated?'qr.regenerated':'qr.generated',{},'qr_asset',q.id)
    return this.qrDto(q)
   })

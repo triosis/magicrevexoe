@@ -28,7 +28,7 @@ export class TenantService {
  withActor<T>(principal:Principal,work:(db:PoolConnection,actor:TenantActor)=>Promise<T>,readOnly=false){return this.actor(principal,work,readOnly)}
  authorizedAccount(db:PoolConnection,actor:TenantActor,id:string,permission='tenant.read'){return this.account(db,actor,id,permission)}
  requirePermission(actor:TenantActor,permission:string){this.permission(actor,permission)}
- auditChange(db:PoolConnection,actor:TenantActor,target:string,action:string,metadata:Record<string,string|boolean>,resourceType='tenant',resourceId=target){return this.audit(db,actor,target,action,metadata,resourceType,resourceId)}
+ auditChange(db:PoolConnection,actor:TenantActor,target:string,action:string,metadata:Record<string,string|boolean>,resourceType='tenant',resourceId=target,requestId?:Buffer){return this.audit(db,actor,target,action,metadata,resourceType,resourceId,requestId)}
  private async actor<T>(principal:Principal,work:(db:PoolConnection,actor:Actor)=>Promise<T>,readOnly=false):Promise<T>{
   // One root lock serializes hierarchy/membership writes for this MVP. Bounded
   // deadlock retries contain ONLY DB work; SMTP is always outside the transaction.
@@ -61,9 +61,9 @@ export class TenantService {
   if(!row)throw new HttpError(404,'Account not found')
   return row
  }
- private async audit(db:PoolConnection,actor:Actor,target:string,action:string,metadata:Record<string,string|boolean>,resourceType='tenant',resourceId=target){
+ private async audit(db:PoolConnection,actor:Actor,target:string,action:string,metadata:Record<string,string|boolean>,resourceType='tenant',resourceId=target,requestId?:Buffer){
   await db.execute(`INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata)
-   VALUES (?,?,?,?,?,?,?,?,?,'success',?)`,[randomBytes(16),target,actor.principal.identity.sub,actor.member.tenantId,actor.member.membershipId,action,resourceType,resourceId,randomBytes(16),JSON.stringify(metadata)])
+   VALUES (?,?,?,?,?,?,?,?,?,'success',?)`,[randomBytes(16),target,actor.principal.identity.sub,actor.member.tenantId,actor.member.membershipId,action,resourceType,resourceId,requestId??randomBytes(16),JSON.stringify(metadata)])
  }
  private async verifyDelivery(){
   if(!this.delivery)throw new HttpError(503,'Invitation delivery unavailable')

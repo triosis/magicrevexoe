@@ -7,7 +7,7 @@ import {TenantService,tenantScopeSQL,type TenantActor} from '../tenants/service.
 import type {FunnelService} from '../funnels/service.js'
 import {HttpError} from '../middleware/error-handler.js'
 import {submission,validTransition,type Submission,type Filter,type StatusInput} from './validation.js'
-import {periodKeys} from '../subscriptions/model.js'
+import {quotas} from '../subscriptions/quota.js'
 
 const labels=(value:unknown)=>typeof value==='string'?JSON.parse(value):value
 const confirmation=(row:RowDataPacket)=>({accepted:true,confirmationId:(row.public_id as Buffer).toString('hex')})
@@ -33,21 +33,10 @@ export class FeedbackService{
    const publicId=randomBytes(16)
    await db.execute('INSERT INTO private_feedback(public_id,tenant_id,branch_id,funnel_configuration_id,industry_channel_id,short_link_id,submission_key_hash,overall_rating,service_rating,cleanliness_rating,waiting_time_rating) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[publicId,f.tenant_id,f.branch_id,f.funnel_id,f.industry_channel_id,f.link_id,digest,input.overallRating,input.serviceRating??null,input.cleanlinessRating??null,input.waitingTimeRating??null])
    const saved=(await select(db,'SELECT id,public_id FROM private_feedback WHERE tenant_id=? AND public_id=?',[f.tenant_id,publicId]))[0]!
-   await this.usage(db,f.tenant_id,publicId)
+   await quotas.consume(db,f.tenant_id,'feedback_submissions',`feedback:${publicId.toString('hex')}`)
    await db.execute("INSERT INTO audit_logs(event_id,tenant_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?,?,'public.feedback_submitted','private_feedback',?,?,'success','{}')",[randomBytes(16),f.tenant_id,saved.id,randomBytes(16)])
    return confirmation(saved)
   })
- }
- private async usage(db:PoolConnection,tenantId:string,publicId:Buffer){
-  // Count without inventing subscriptions/periods or implementing plan admission.
-  const sub=(await select(db,`SELECT id,${periodKeys} FROM subscriptions WHERE tenant_id=? AND status IN ('trialing','active','past_due') AND current_period_start<=UTC_TIMESTAMP(6) AND current_period_end>UTC_TIMESTAMP(6) FOR UPDATE`,[tenantId]))[0]
-  if(!sub)return // Permanent feedback rows/audits still measure pre-billing submissions.
-  const values=[tenantId,sub.id,sub.period_start_key,sub.period_end_key]
-  const counter=(await select(db,"SELECT DATE_FORMAT(period_end,'%Y-%m-%d %H:%i:%s.%f') AS end_key FROM usage_counters WHERE tenant_id=? AND subscription_id=? AND metric='feedback_submissions' AND period_start=? FOR UPDATE",values.slice(0,3)))[0]
-  if(!counter)throw new HttpError(409,'Usage accounting not initialized')
-  if(counter.end_key!==sub.period_end_key)throw new HttpError(409,'Usage period requires reconciliation')
-  await db.execute("INSERT INTO usage_records(tenant_id,subscription_id,metric,quantity,period_start,period_end,source_event_key) VALUES (?,?,'feedback_submissions',1,?,?,?)",[...values,Buffer.from('feedback:'+publicId.toString('hex'))])
-  await db.execute("UPDATE usage_counters SET used=used+1 WHERE tenant_id=? AND subscription_id=? AND metric='feedback_submissions' AND period_start=?",values.slice(0,3))
  }
  private dto(row:RowDataPacket){return{id:row.id,publicId:(row.public_id as Buffer).toString('hex'),merchantId:row.tenant_id,branchId:row.branch_id,ratings:{overall:row.overall_rating,service:row.service_rating,cleanliness:row.cleanliness_rating,waitingTime:row.waiting_time_rating},status:row.status,lockVersion:row.lock_version,submittedAt:row.submitted_at,resolvedAt:row.resolved_at}}
  private async scope(db:PoolConnection,actor:TenantActor,input:Filter){

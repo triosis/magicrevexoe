@@ -8,6 +8,7 @@ import { AccessTokens, tokenDigest, opaqueToken } from './tokens.js'
 import { hashPassword, verifyPassword } from './passwords.js'
 import type { InvitationDelivery } from '../tenants/delivery.js'
 import {FeedbackTokens} from '../feedback/tokens.js'
+import {quotas} from '../subscriptions/quota.js'
 
 type User = RowDataPacket & { id: string; email: string; password_hash: string | null; status: string; auth_version: number; email_verified_at: Date | null }
 type Session = RowDataPacket & { id: string; user_id: string; family_id: Buffer; auth_version: number; expires_at: Date; revoked_at: Date | null; valid: number }
@@ -166,6 +167,7 @@ export class AuthService {
     const encoded = await hashPassword(password)
     await transaction(this.pool,async connection=>{
       const user = await this.lockedUser(connection,hint.user_id)
+      if(purpose==='invite')await select(connection,"SELECT id FROM tenants WHERE kind='platform' FOR UPDATE")
       const row = (await select(connection,'SELECT *,expires_at>UTC_TIMESTAMP(6) AS valid FROM auth_tokens WHERE token_hash=? AND purpose=? FOR UPDATE',[digest,purpose]))[0]
       if (!row || row.consumed_at || !Number(row.valid)) invalid()
       if (purpose==='reset_password' && user.status!=='active') invalid()
@@ -181,6 +183,10 @@ export class AuthService {
       if (purpose==='reset_password' || user.status==='invited') {
         await connection.execute("UPDATE users SET password_hash=?,password_changed_at=UTC_TIMESTAMP(6),email_verified_at=COALESCE(email_verified_at,UTC_TIMESTAMP(6)),status='active',auth_version=auth_version+1 WHERE id=?",[encoded,user.id])
         await connection.execute('UPDATE auth_sessions SET revoked_at=COALESCE(revoked_at,UTC_TIMESTAMP(6)) WHERE user_id=?',[user.id])
+      }
+      if(purpose==='invite'){
+        const tenant=(await select(connection,'SELECT kind FROM tenants WHERE id=?',[row.tenant_id]))[0]
+        if(tenant?.kind==='merchant')await quotas.consume(connection,row.tenant_id,'staff_seats',`membership:${row.tenant_id}:${user.id}`)
       }
       await connection.execute('UPDATE auth_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE id=? AND consumed_at IS NULL',[row.id])
       if (purpose==='reset_password') await connection.execute("UPDATE auth_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE user_id=? AND purpose='reset_password' AND consumed_at IS NULL",[user.id])

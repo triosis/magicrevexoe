@@ -1,5 +1,10 @@
 # Merchant subscriptions and usage APIs
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Implemented locally for Task 11, 2026-11-05. Base `/api/v1`. Every endpoint requires
 the existing bearer access token and an active selected membership. Responses are
 `Cache-Control: no-store`. IDs, prices, limits, quantities and remaining quotas are

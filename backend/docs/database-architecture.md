@@ -1,5 +1,10 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 12 update: real React/Express/disposable MariaDB 11.8.9 end-to-end verification
 now covers the complete hierarchical onboarding, QR/public feedback and merchant
 subscription journey locally. See ../../docs/e2e-integration-report.md and its

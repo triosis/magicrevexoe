@@ -2,6 +2,7 @@ import type {Me} from './types'
 type StoredSession={refreshToken:string;membershipId?:string}
 type SessionReply={accessToken:string;refreshToken:string}
 export class ApiError extends Error{
+ quota?:{code:string;metric:string;limit:string|null;used:string|null;remaining:string|null}
  readonly status:number
  constructor(status:number,message:string){super(message);this.status=status}
 }
@@ -32,7 +33,7 @@ export class ApiClient{
   if(!path.startsWith('/')||path.startsWith('//')||path.includes('..')||/[\r\n]/.test(path))throw new ApiError(0,'Invalid API path')
   let response:Response
   try{response=await this.transport(this.base+path,{method,credentials:'omit',headers:{Accept:blob?'image/svg+xml, image/png':'application/json',...(body!==undefined?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})})}catch{throw new ApiError(0,'Could not reach the service. A submitted change may already have been saved; check its current state before retrying.')}
-  if(!response.ok){let message=`Request failed (${response.status}).`;try{const value=await response.json();if(typeof value.error==='string'&&value.error.length<=200)message=value.error}catch{/* Never display server HTML/driver details. */}throw new ApiError(response.status,message)}
+  if(!response.ok){const failure=new ApiError(response.status,`Request failed (${response.status}).`);try{const value=await response.json();if(typeof value.error==='string'&&value.error.length<=200)failure.message=value.error;if(typeof value.code==='string'&&typeof value.metric==='string'&&/^(QUOTA_|SUBSCRIPTION_)/.test(value.code)){const decimal=(v:unknown)=>typeof v==='string'&&/^\d{1,20}$/.test(v)?v:null;failure.quota={code:value.code,metric:value.metric,limit:decimal(value.limit),used:decimal(value.used),remaining:decimal(value.remaining)};failure.message+=failure.quota.limit===null?' Ask an authorized administrator to check the subscription and quota configuration.':` Limit: ${failure.quota.limit}; used: ${failure.quota.used??'unavailable'}; remaining: ${failure.quota.remaining??'unavailable'}.`}}catch{/* Never display server HTML/driver details. */}throw failure}
   if(response.status===204)return undefined
   if(blob)return response.blob()
   try{return await response.json()}catch{throw new ApiError(0,'The service returned an unexpected response.')}

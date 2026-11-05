@@ -1,3 +1,4 @@
+import {fundTestMerchant} from './quota-fixtures.mjs'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {once} from 'node:events'
@@ -44,6 +45,7 @@ test('merchant business APIs on disposable MariaDB 11.8.9',{timeout:120000},asyn
    const login=await auth.login(email,password),selected=await auth.selectTenant(await auth.authenticate(login.accessToken),membershipId)
    actors[key]={token:selected.accessToken,principal:await auth.authenticate(selected.accessToken)}
   }
+  for(const row of await query("SELECT id FROM tenants WHERE kind='merchant'"))await fundTestMerchant(pool,row.id)
   server=createServer(createApp({env,auth,tenants,business,checkDatabase:async()=>{},isShuttingDown:()=>false}));server.listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port
   await t.test('all active account types can read the three seeded channels, with no drafts exposed',async()=>{
    for(const actor of Object.keys(actors)){const r=await request('GET','/industry-channels',actor);assert.equal(r.status,200);assert.equal(r.body.channels.length,3)}

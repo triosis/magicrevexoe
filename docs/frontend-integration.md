@@ -1,5 +1,10 @@
 # MagicReview AI application guide
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](../backend/docs/quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 12 adds separate real-stack verification: `npm run test:e2e:real` uses actual
 React/Express/MariaDB and real browser/HTTP requests, without local API mocks.
 See [integration report](e2e-integration-report.md), [browser setup/results](e2e-browser-report.md)

@@ -36,3 +36,8 @@ it('reports API errors and hides subscription data for roles without read permis
 it('initializes only through authorized controls and reloads availability',async()=>{
  access.manage=true;access.read=true;const spy=responses(true,true);render(<SubscriptionPanel merchantId="10"/>);const button=await screen.findByRole('button',{name:'Initialize missing usage counters'});await userEvent.click(button);await screen.findByText(/Existing period values were preserved/);await waitFor(()=>expect(screen.getByRole('row',{name:/Active branches/})).toHaveTextContent('available'));expect(spy.mock.calls.some(([path,method,body])=>path==='/merchants/10/subscriptions/30/usage/initialize'&&method==='POST'&&JSON.stringify(body)==='{}')).toBe(true)
 })
+it('keeps the form in a failed state when a quota response rejects the operation',async()=>{
+ access.manage=true;access.read=true;const spy=responses(false),original=spy.getMockImplementation()!
+ spy.mockImplementation((path,method,body)=>path==='/merchants/10/subscriptions'&&method==='POST'?Promise.reject(new ApiError(409,'Operation blocked: quota unavailable')):original(path,method,body))
+ render(<SubscriptionPanel merchantId="10"/>);await screen.findByText('Assign a subscription');const user=userEvent.setup();await user.click(screen.getByText('Assign a subscription'));await user.selectOptions(screen.getByLabelText('Published subscription plan'),'7');await user.type(screen.getByLabelText('Period end (your local time)'),'2027-01-05T10:00');await user.click(screen.getByRole('button',{name:'Assign subscription',exact:true}));expect(await screen.findByRole('alert')).toHaveTextContent('Operation blocked');expect(screen.queryByText(/Subscription assigned and usage counters initialized/)).not.toBeInTheDocument()
+})

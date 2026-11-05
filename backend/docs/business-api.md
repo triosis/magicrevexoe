@@ -1,5 +1,10 @@
 # Merchant, branch and industry channel API
 
+Task 13 now enforces the five existing quotas at service transaction boundaries.
+See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
+are historical; merchant subscription/counters must precede first admin acceptance
+and metered resources. Google remains independent; no production change.
+
 Task 09 implements structured private feedback submission and management:
 [feedback-api.md](feedback-api.md). Earlier task notes about absent submission
 refer to historical scope; the customer-facing frontend remains separate work.

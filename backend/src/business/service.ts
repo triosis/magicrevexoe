@@ -6,6 +6,7 @@ import type {AuthService} from '../auth/service.js'
 import type {Principal} from '../auth/authorization.js'
 import {TenantService,tenantScopeSQL,type TenantActor,type Page,type CreateInput} from '../tenants/service.js'
 import {canonicalTimezone,validTimezone,destinationInput} from './validation.js'
+import {quotas} from '../subscriptions/quota.js'
 
 type Branch=RowDataPacket&{id:string;tenant_id:string;status:string;lock_version:number;industry_channel_id:string}
 type BranchInput={code:string;name:string;timezone:string;address?:string|null|undefined}
@@ -111,6 +112,7 @@ export class BusinessService{
   const publicId=randomBytes(16)
   try{await db.execute('INSERT INTO branches(public_id,tenant_id,industry_channel_id,code,name,timezone,address) VALUES (?,?,?,?,?,?,?)',[publicId,id,m.industry_channel_id,input.code,input.name,timezone,input.address??null])}catch(error){duplicate(error)}
   const b=(await select<Branch>(db,'SELECT * FROM branches WHERE tenant_id=? AND public_id=?',[id,publicId]))[0]!
+  await quotas.consume(db,id,'branches',`branch:${b.id}`)
   await this.tenants.auditChange(db,actor,id,'branch.created',{},'branch',b.id)
   return this.branchDto(b)
  })}
@@ -137,6 +139,7 @@ export class BusinessService{
   await this.liveLinks(db,b)
   const [result]=await db.execute<ResultSetHeader>("UPDATE branches SET status='archived',lock_version=lock_version+1 WHERE tenant_id=? AND id=? AND lock_version=?",[b.tenant_id,id,lockVersion])
   if(result.affectedRows!==1)conflict('Branch version conflict')
+  await quotas.reconcile(db,b.tenant_id,'branches',`archive:${id}`)
   await this.tenants.auditChange(db,actor,b.tenant_id,'branch.archived',{},'branch',id)
   return this.branchDto(await this.branch(db,actor,id))
  })}

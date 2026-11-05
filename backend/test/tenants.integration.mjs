@@ -1,3 +1,4 @@
+import {fundTestMerchant} from './quota-fixtures.mjs'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {once} from 'node:events'
@@ -121,6 +122,8 @@ test('tenant management on disposable MariaDB 11.8.9',{timeout:120000},async t=>
    const result=await request('POST','/'+merchant+'/invitations','merchant',{email,displayName:'New Staff',roleCode:'merchant_staff'})
    assert.equal(result.status,201)
    const message=messages.find(m=>m.email===email);assert.ok(message)
+   const invitedTenant=(await query('SELECT tenant_id FROM auth_tokens WHERE token_hash=?',[tokenDigest(message.token)]))[0].tenant_id
+   await fundTestMerchant(pool,invitedTenant)
    await auth.consumeToken(message.token,password,'invite')
    const signed=await auth.login(email,password),selected=await auth.selectTenant(await auth.authenticate(signed.accessToken),result.body.membershipId)
    const principal=await auth.authenticate(selected.accessToken)

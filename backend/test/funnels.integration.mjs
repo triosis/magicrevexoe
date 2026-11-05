@@ -1,3 +1,4 @@
+import {fundTestMerchant} from './quota-fixtures.mjs'
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {once} from 'node:events'
@@ -46,6 +47,7 @@ test('QR, short links and public parallel funnels on disposable MariaDB 11.8.9',
    const mid=await insert('tenant_memberships',{tenant_id:id,tenant_kind:kind,user_id:user,role_id:roles[role],status:'active'}),login=await auth.login(email,password),selected=await auth.selectTenant(await auth.authenticate(login.accessToken),mid)
    actors[key]={token:selected.accessToken,principal:await auth.authenticate(selected.accessToken)}
   }
+  for(const row of await query("SELECT id FROM tenants WHERE kind='merchant'"))await fundTestMerchant(pool,row.id)
   server=createServer(createApp({env,auth,tenants,business,funnels,checkDatabase:async()=>{},isShuttingDown:()=>false}));server.listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port
   await t.test('authorized publication and secure links support all three channels with immutable revisions',async()=>{
    for(const c of cases){
