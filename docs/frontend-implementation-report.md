@@ -1,5 +1,9 @@
 # Task 10 frontend integration and validation report
 
+Task 11 supersedes the subscription-unavailable limitation in this historical
+report. See [the subscription implementation report](../backend/docs/subscriptions-implementation-report.md)
+for live subscription/usage integration, current tests and additional file inventory.
+
 Implemented locally on 2026-11-04. No Hostinger/Google/SMTP connection, production
 environment update or production migration. No administrator credentials were seeded.
 Guide and current limits: [frontend-integration.md](frontend-integration.md).

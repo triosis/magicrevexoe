@@ -94,3 +94,11 @@ local MariaDB harness. Read the [security report](docs/feedback-security-report.
 and [implementation/test inventory](docs/feedback-implementation-report.md) before
 rollout. Existing current subscriptions require initialized usage counters; no
 new production secret, schema migration or quota admission was added.
+
+Task 11 adds [merchant subscription and usage APIs](docs/subscriptions-api.md) and
+the existing merchant frontend's subscription panel. No plan prices/limits are
+seeded. See the [security report](docs/subscriptions-security-report.md) and
+[implementation/test inventory](docs/subscriptions-implementation-report.md) for
+current gauge versus snapshot-history semantics and production gates. Run
+`npm --prefix backend run test:subscriptions:integration` using the disposable
+MariaDB harness. No payment/billing automation or quota admission is implemented.

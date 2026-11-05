@@ -7,6 +7,7 @@ import {TenantService,tenantScopeSQL,type TenantActor} from '../tenants/service.
 import type {FunnelService} from '../funnels/service.js'
 import {HttpError} from '../middleware/error-handler.js'
 import {submission,validTransition,type Submission,type Filter,type StatusInput} from './validation.js'
+import {periodKeys} from '../subscriptions/model.js'
 
 const labels=(value:unknown)=>typeof value==='string'?JSON.parse(value):value
 const confirmation=(row:RowDataPacket)=>({accepted:true,confirmationId:(row.public_id as Buffer).toString('hex')})
@@ -39,12 +40,12 @@ export class FeedbackService{
  }
  private async usage(db:PoolConnection,tenantId:string,publicId:Buffer){
   // Count without inventing subscriptions/periods or implementing plan admission.
-  const sub=(await select(db,"SELECT id,current_period_start,current_period_end FROM subscriptions WHERE tenant_id=? AND status IN ('trialing','active','past_due') AND current_period_start<=UTC_TIMESTAMP(6) AND current_period_end>UTC_TIMESTAMP(6) FOR UPDATE",[tenantId]))[0]
+  const sub=(await select(db,`SELECT id,${periodKeys} FROM subscriptions WHERE tenant_id=? AND status IN ('trialing','active','past_due') AND current_period_start<=UTC_TIMESTAMP(6) AND current_period_end>UTC_TIMESTAMP(6) FOR UPDATE`,[tenantId]))[0]
   if(!sub)return // Permanent feedback rows/audits still measure pre-billing submissions.
-  const values=[tenantId,sub.id,sub.current_period_start,sub.current_period_end]
-  const counter=(await select(db,"SELECT period_end FROM usage_counters WHERE tenant_id=? AND subscription_id=? AND metric='feedback_submissions' AND period_start=? FOR UPDATE",values.slice(0,3)))[0]
+  const values=[tenantId,sub.id,sub.period_start_key,sub.period_end_key]
+  const counter=(await select(db,"SELECT DATE_FORMAT(period_end,'%Y-%m-%d %H:%i:%s.%f') AS end_key FROM usage_counters WHERE tenant_id=? AND subscription_id=? AND metric='feedback_submissions' AND period_start=? FOR UPDATE",values.slice(0,3)))[0]
   if(!counter)throw new HttpError(409,'Usage accounting not initialized')
-  if(new Date(counter.period_end).getTime()!==new Date(sub.current_period_end).getTime())throw new HttpError(409,'Usage period requires reconciliation')
+  if(counter.end_key!==sub.period_end_key)throw new HttpError(409,'Usage period requires reconciliation')
   await db.execute("INSERT INTO usage_records(tenant_id,subscription_id,metric,quantity,period_start,period_end,source_event_key) VALUES (?,?,'feedback_submissions',1,?,?,?)",[...values,Buffer.from('feedback:'+publicId.toString('hex'))])
   await db.execute("UPDATE usage_counters SET used=used+1 WHERE tenant_id=? AND subscription_id=? AND metric='feedback_submissions' AND period_start=?",values.slice(0,3))
  }

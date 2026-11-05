@@ -138,7 +138,12 @@ fail 409 and roll back the entire submission rather than silently resetting usag
 Billing activation must initialize/reconcile these rows before activating plans.
 Merchants without a current subscription still submit; feedback rows and audits
 provide pre-billing counts, without inventing a subscription or billing period.
-There is no retroactive ledger backfill and no plan quota admission in this task.
+Task 09 did not backfill the ledger. Task 11 now provides explicit transactional
+current-period initialization: when no ledger exists, it records an aggregate
+baseline of actual feedback within the operator-assigned period. Existing ledger
+rows take priority and are never rewritten. Subsequent submissions use exact
+DATETIME(6) period keys, including legacy microseconds. See subscriptions-api.md.
+No plan quota admission is implemented.
 Accounting failure never disables or hides the independent Google option.
 
 ## Errors, limits and deployment

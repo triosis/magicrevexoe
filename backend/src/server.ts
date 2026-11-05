@@ -7,6 +7,7 @@ import { TenantService } from './tenants/service.js'
 import { BusinessService } from './business/service.js'
 import { FunnelService } from './funnels/service.js'
 import { FeedbackService } from './feedback/service.js'
+import {SubscriptionService} from './subscriptions/service.js'
 
 async function main() {
   const env = loadEnv()
@@ -17,7 +18,8 @@ async function main() {
   const business=auth&&tenants?new BusinessService(tenants,auth):undefined
   const funnels=auth&&tenants?new FunnelService(pool,tenants,auth,process.env.PUBLIC_FUNNEL_ORIGIN,process.env.PUBLIC_WEB_ORIGIN):undefined
   const feedback=auth&&tenants&&funnels?new FeedbackService(tenants,auth,funnels):undefined
-  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback })
+  const subscriptions=tenants?new SubscriptionService(tenants):undefined
+  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions })
   const server = createServer(app)
   server.requestTimeout = 30_000
   server.headersTimeout = 15_000

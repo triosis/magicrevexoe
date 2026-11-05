@@ -158,11 +158,20 @@ Status choices reflect the supported transition/reason matrix; the backend remai
 authoritative and enforces permissions/CAS. No private notes, AI sentiment, generated
 replies or customer contact collection were added.
 
-There is no subscription/usage visibility API today. The merchant screen shows an
-unavailable state, never invented prices, plans or quotas. Current subscriptions
-still require initialized usage counters; missing accounting data never means
-unlimited usage. The existing landing's illustrative pricing/demo remains isolated
-from authenticated live screens, which use real API requests exclusively.
+Task 11 connects the merchant subscription area to the authenticated
+subscription/usage APIs. It shows current configured plan terms/status/period,
+live usage, limits and calculable remaining quota. Missing subscription, catalog,
+counter or API results have explicit empty/unavailable/loading/error states.
+Only authorized non-merchant managers see assignment, status and initialization
+controls; the current seeded manager is Super Admin. Catalog selection displays
+the first 100 published plans with a notice if more exist; subscription and recorded
+usage history have cursor paging. No prices or quotas are invented. Current gauge
+counts are live resources; recorded gauge history contains initialization snapshots,
+not continuous lifecycle history. The UI states this limitation. No payment,
+renewal automation or quota admission is added. See
+[the API contract](../backend/docs/subscriptions-api.md) and
+[Task 11 report](../backend/docs/subscriptions-implementation-report.md).
+The landing's illustrative pricing/demo remains isolated from live API screens.
 
 ## Known limits
 

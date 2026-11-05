@@ -1,5 +1,14 @@
 # MagicReview AI — Phase 1 database architecture proposal
 
+Task 11 update: merchant-owned subscription assignment/status/history and usage
+visibility now use the existing schema. Current counter initialization is
+transactional/idempotent; current gauges use live resource counts, while gauge
+ledger history is explicitly opening snapshots only. Exact DATETIME(6) accounting
+keys are preserved. The merchant frontend displays real configured terms or honest
+unavailable states. No plan prices/quotas were seeded, migration added, quota
+admission or billing automation implemented. See subscriptions-api.md,
+subscriptions-security-report.md and subscriptions-implementation-report.md.
+
 Task 10 update: the React application now integrates the existing APIs, including
 invited access, scoped account/business management and anonymous structured feedback.
 See ../../docs/frontend-integration.md and frontend-implementation-report.md there.

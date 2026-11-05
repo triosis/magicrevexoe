@@ -1,6 +1,6 @@
 import {expect,test,type Page} from '@playwright/test'
 import {funnel,member,me,code} from '../frontend/fixtures'
-const allPermissions=['platform.manage','reseller.create','sub_reseller.create','merchant.create','tenant.read','tenant.manage','membership.manage','audit.read','branch.manage','destination.manage','funnel.manage','qr.manage','feedback.read','feedback.change_status']
+const allPermissions=['platform.manage','reseller.create','sub_reseller.create','merchant.create','tenant.read','tenant.manage','membership.manage','audit.read','branch.manage','destination.manage','funnel.manage','qr.manage','feedback.read','feedback.change_status','subscription.read','subscription.manage']
 async function fixture(page:Page,platform=false){
  let selected=false,destination:any=null,links:any[]=[],assets:any[]=[],branches:any[]=[],currentFeedback:any={id:'400',publicId:'safe',merchantId:'10',branchId:'100',ratings:{overall:2,service:3,cleanliness:null,waitingTime:null},status:'new',lockVersion:1,submittedAt:'2026-11-04T00:00:00Z',resolvedAt:null,history:[]}
  const membership=platform?{...member,kind:'platform',tenantId:'1',roleCode:'super_admin',permissions:allPermissions}:member
@@ -24,6 +24,11 @@ async function fixture(page:Page,platform=false){
   if(path==='/industry-channels')return send({channels:[{id:'3',code:'clinic_healthcare',name:'Clinic & Healthcare',status:'active'}]})
   if(path==='/industry-channels/3/versions')return send({versions:[{id:'7',version:1,status:'published',displayName:'Service experience',publicCopy:{title:'Your visit'}}]})
   if(path==='/tenants')return send({accounts,nextCursor:null})
+  if(path==='/subscription-plans')return send({plans:[],nextCursor:null})
+  if(/^\/merchants\/\d+\/subscription$/.test(path))return send({subscription:null,availability:'no_subscription',accountAccess:'active'})
+  if(/^\/merchants\/\d+\/subscriptions$/.test(path))return send({subscriptions:[],nextCursor:null})
+  if(/^\/merchants\/\d+\/usage\/history$/.test(path))return send({usageRecords:[],nextCursor:null,gaugeHistoryCoverage:'initialization_snapshots_only'})
+  if(/^\/merchants\/\d+\/usage$/.test(path))return send({availability:'no_subscription',metrics:[]})
   if(path==='/merchants'&&method==='POST'){const account={id:'30',kind:'merchant',parentId:body.parentId,name:body.name,status:'active',effectiveStatus:'active',industryChannelId:'3',lockVersion:1,createdAt:'2026-11-04T00:00:00Z'};accounts.push(account);return send({tenant:account,invitation:{deliveryStatus:'accepted_by_smtp'}},201)}
   if(/^\/tenants\/\d+\/history$/.test(path))return send({events:[{action:'tenant.created',occurredAt:'2026-11-04T00:00:00Z'}],nextCursor:null})
   if(/^\/tenants\/\d+\/descendants$/.test(path))return send({accounts:[],nextCursor:null})
@@ -47,6 +52,10 @@ async function fixture(page:Page,platform=false){
  return{calls}
 }
 async function login(page:Page){await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill('owner@example.invalid');await page.getByLabel('Password',{exact:true}).fill('example-password-123');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('navigation',{name:'Workspace navigation'})).toBeVisible()}
+
+test('merchant subscription area displays honest empty states and hides administrative assignment',async({page})=>{
+ const {calls}=await fixture(page);await login(page);await page.goto('/app/business');await expect(page.getByRole('heading',{name:'Subscription & usage'})).toBeVisible();await expect(page.getByText(/No subscription has been assigned/)).toBeVisible();await page.getByText('Available subscription plans',{exact:true}).click();await expect(page.getByText(/No published plans are available/)).toBeVisible();await expect(page.getByText('Assign a subscription',{exact:true})).toHaveCount(0);expect(calls.some(c=>c.path==='/merchants/10/subscription'&&c.authorization==='Bearer selected')).toBe(true)
+})
 
 test('landing stays intact; login, tab restoration, role navigation and logout work',async({page})=>{
  const {calls}=await fixture(page);await page.goto('/');await expect(page.getByRole('heading',{name:/Great experiences deserve/})).toBeVisible();await expect(page.getByRole('link',{name:'Sign in',exact:true})).toBeVisible();await login(page);await expect(page.getByRole('link',{name:'Accounts',exact:true})).toHaveCount(0);await page.reload();await expect(page.getByRole('navigation',{name:'Workspace navigation'})).toBeVisible();expect(calls.filter(c=>c.path==='/auth/refresh')).toHaveLength(1);await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('button',{name:'Sign in',exact:true})).toBeVisible();expect(await page.evaluate(()=>sessionStorage.getItem('magicreview.session.v1'))).toBeNull()
