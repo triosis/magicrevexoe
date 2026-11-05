@@ -69,6 +69,7 @@ export class AuthService {
       if(!await verifyPassword(user.password_hash,password)){await this.mfa.verify(db,user.id,principal.identity.sid,'invalid');await this.audit(db,user.id,'auth.mfa_rejected');return null}
       const verified=await this.mfa.verify(db,user.id,principal.identity.sid,code)
       if(!verified){await this.audit(db,user.id,'auth.mfa_rejected');return null}
+      if(verified.recovery)await this.audit(db,user.id,'auth.mfa_recovery_used')
       let recoveryCodes:string[]|undefined
       if(disable){await db.execute('UPDATE user_mfa SET secret_cipher=NULL,enabled_at=NULL,last_step=NULL,pending_cipher=NULL,pending_session_id=NULL,pending_expires_at=NULL WHERE user_id=?',[user.id]);await db.execute('UPDATE mfa_recovery_codes SET consumed_at=COALESCE(consumed_at,UTC_TIMESTAMP(6)) WHERE user_id=?',[user.id])}
       else recoveryCodes=await this.mfa.recoveryCodes(db,user.id)
@@ -96,7 +97,7 @@ export class AuthService {
     const root = (await select(connection, "SELECT id FROM tenants WHERE platform_slot=1"))[0]
     if (!root) throw new HttpError(503, 'Authentication temporarily unavailable')
     await connection.execute(`INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata)
-      VALUES (?,?,?,?,?,?,'user',?,?,'success','{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16)])
+      VALUES (?,?,?,?,?,?,'user',?,?,?,'{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16),['auth.mfa_rejected','auth.refresh_replay'].includes(action)?'denied':'success'])
   }
   private async session(connection: PoolConnection, user: User, family: Buffer = randomBytes(16), expires?: Date, verified=false, challenge=false) {
     const refreshToken = opaqueToken()

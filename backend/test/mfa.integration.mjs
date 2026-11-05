@@ -94,7 +94,8 @@ test('MFA real factors and sessions on disposable MariaDB 11.8.9',{timeout:12000
   await t.test('expired challenges, missing encryption keys, and secret-free atomic audit events',async()=>{
    await q('UPDATE auth_sessions SET expires_at=DATE_ADD(created_at,INTERVAL 1 MICROSECOND) WHERE token_hash=?',[tokenDigest(challenge.challengeToken)]);await assert.rejects(auth.enrollMfa(challenge.challengeToken))
    await assert.rejects(new AuthService(pool,key).login(email,password),e=>e.status===503)
-   const events=await q("SELECT action,safe_metadata FROM audit_logs WHERE action LIKE 'auth.mfa_%'");for(const action of ['auth.mfa_enabled','auth.mfa_recovery_used','auth.mfa_recovery_regenerated','auth.mfa_disabled','auth.mfa_rejected'])assert.ok(events.some(e=>e.action===action))
+   const events=await q("SELECT action,outcome,safe_metadata FROM audit_logs WHERE action LIKE 'auth.mfa_%'");for(const action of ['auth.mfa_enabled','auth.mfa_recovery_used','auth.mfa_recovery_regenerated','auth.mfa_disabled','auth.mfa_rejected'])assert.ok(events.some(e=>e.action===action))
+   assert.ok(events.filter(e=>e.action==='auth.mfa_rejected').every(e=>e.outcome==='denied'));assert.ok(events.filter(e=>e.action==='auth.mfa_recovery_used').length>=4)
    const serialized=JSON.stringify(events);assert.ok(!serialized.includes(otp.secret.base32));assert.ok(!serialized.includes(password));for(const code of codes)assert.ok(!serialized.includes(code))
   })
  }finally{for(const c of connections)c.destroy();await new Promise(r=>setImmediate(r));await pool.end();await fixture.close()}
