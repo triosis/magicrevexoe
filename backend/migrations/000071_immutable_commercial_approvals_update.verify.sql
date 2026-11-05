@@ -1,0 +1,1 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME='immutable_commercial_approvals_update' AND EVENT_OBJECT_TABLE='commercial_approvals' AND ACTION_TIMING='BEFORE' AND EVENT_MANIPULATION='UPDATE')=1) AS satisfied

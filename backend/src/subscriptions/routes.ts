@@ -7,9 +7,15 @@ import {HttpError} from '../middleware/error-handler.js'
 import {parse,page} from '../business/validation.js'
 import {assignment,statusChange,empty,historyInput,metric} from './model.js'
 import type {SubscriptionService} from './service.js'
-export function subscriptionRoutes(auth?:AuthService,service?:SubscriptionService){
+import type {CatalogService} from './catalog.js'
+export function subscriptionRoutes(auth?:AuthService,service?:SubscriptionService,catalog?:CatalogService){
  const router=Router(),limiter=new RateLimiter()
  const guard:RequestHandler[]=[(_req,res,next)=>{res.set('Cache-Control','no-store');next()},(_req,_res,next)=>{if(!service||!auth)throw new HttpError(503,'Subscription service unavailable');next()},auth?auth.authentication():(_req,_res)=>{throw new HttpError(503,'Authentication unavailable')},activeMembership(),(req,res,next)=>{try{limiter.consume(`subscription:${principalFrom(res.locals).identity.sub}`,req.method==='GET'?120:30)}catch(error){res.set('Retry-After','900');throw error}next()}]
+ const configured:RequestHandler=(_req,_res,next)=>{if(!catalog)throw new HttpError(503,'Catalog management unavailable');next()}
+ router.get('/admin/subscription-plans',...guard,configured,async(req,res)=>{const input=parse(page,req.query);res.json(await catalog!.list(principalFrom(res.locals),input.afterId,input.limit))})
+ router.post('/admin/subscription-plans',...guard,configured,async(req,res)=>{parse(empty,req.query);res.status(201).json(await catalog!.create(principalFrom(res.locals),req.body))})
+ router.post('/admin/subscription-plans/:id/publish',...guard,configured,async(req,res)=>{parse(empty,req.body);parse(empty,req.query);res.json(await catalog!.publish(principalFrom(res.locals),parse(identifier,req.params.id)))})
+ router.post('/admin/subscription-plans/:id/commercial-approval',...guard,configured,async(req,res)=>{parse(empty,req.query);res.json(await catalog!.approve(principalFrom(res.locals),parse(identifier,req.params.id),req.body))})
  router.get('/subscription-plans',...guard,async(req,res)=>{res.json(await service!.plans(principalFrom(res.locals),parse(page,req.query)))})
  router.get('/subscription-plans/:id',...guard,async(req,res)=>{parse(empty,req.query);res.json(await service!.planDetails(principalFrom(res.locals),parse(identifier,req.params.id)))})
  router.get('/merchants/:id/subscription',...guard,async(req,res)=>{parse(empty,req.query);res.json(await service!.current(principalFrom(res.locals),parse(identifier,req.params.id)))})

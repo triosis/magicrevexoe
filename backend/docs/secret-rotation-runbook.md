@@ -142,3 +142,15 @@ off-site immutable/versioned storage, scheduling/retention and incident ownershi
 No automatic rotation, multi-key MFA decryption, remote backup executor or production
 rotation is claimed. Runtime verified database TLS and explicit TLS SMTP diagnostics
 are now implemented; provider compatibility/delivery are still unverified.
+
+## Task 21 external keys
+
+ANTHROPIC_API_KEY, RAZORPAY_KEY_SECRET and the independent RAZORPAY_WEBHOOK_SECRET
+are protected environment inputs. No actual keys were generated or rotated here.
+Coordinate provider-side replacement and deployment through a separately approved
+change. Verify the new configuration in isolated provider test mode first. Never
+print keys or place them in catalog approval JSON. The current webhook adapter
+uses one configured secret: drain/reconcile historical deliveries before a cutover,
+and retain old verification material in the approved secret store for authorized
+reconciliation. Do not disable signature checks to accept old deliveries. No
+automatic overlapping-key rotation or provider continuity is claimed.

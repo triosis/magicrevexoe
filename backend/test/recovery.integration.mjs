@@ -59,15 +59,15 @@ test('actual encrypted backup, verified restoration and restored application on 
   const accepted=await feedback.submit(code,{submissionToken:auth.feedbackTokens.issue(code,1).token,overallRating:4,serviceRating:5});feedbackId=(await q(source.pool,'SELECT id FROM private_feedback WHERE public_id=?',[Buffer.from(accepted.confirmationId,'hex')]))[0].id
   await feedback.changeStatus(ownerPrincipal,feedbackId,{status:'in_progress',reasonCode:'triage',lockVersion:1})
 
-  await t.test('consistent encrypted native backup includes all 26 tables and leaves credentials outside arguments',async()=>{
-   const tempBefore=new Set(await readdir(tmpdir()));good=await backup(options(source));assert.deepEqual((await readdir(tmpdir())).filter(name=>name.startsWith('magicreview-recovery-')&&!tempBefore.has(name)),[]);manifest=await readManifest(good.manifestFile,keys(key));assert.equal(good.tableCount,26);assert.equal(good.triggerCount,35);assert.equal(good.restoreVerified,false)
+  await t.test('consistent encrypted native backup includes all 30 tables and leaves credentials outside arguments',async()=>{
+   const tempBefore=new Set(await readdir(tmpdir()));good=await backup(options(source));assert.deepEqual((await readdir(tmpdir())).filter(name=>name.startsWith('magicreview-recovery-')&&!tempBefore.has(name)),[]);manifest=await readManifest(good.manifestFile,keys(key));assert.equal(good.tableCount,30);assert.equal(good.triggerCount,41);assert.equal(good.restoreVerified,false)
    for(const table of ['tenants','users','auth_sessions','auth_tokens','user_mfa','mfa_recovery_codes','branches','review_destinations','qr_assets','short_links','private_feedback','feedback_status_events','subscriptions','usage_counters','usage_records','audit_logs','schema_migrations'])assert.ok(BigInt(manifest.snapshot.data[table].rows)>0n,table)
    const bytes=await readFile(good.archiveFile);assert.ok(!bytes.includes(Buffer.from(password)));assert.ok(!bytes.includes(Buffer.from('CREATE TABLE')))
    assert.equal((await verify({manifestFile:good.manifestFile,encryptionKey:key})).restoreVerified,false)
   })
   await t.test('fresh actual restore matches complete data, indexes, foreign keys, triggers and immutable migration ledger',async()=>{
    restored=await database();rehearsal=await restoreInto(restored);assert.equal(rehearsal.restoreVerified,true);assert.equal(rehearsal.snapshotDigest,manifest.snapshot.snapshotDigest)
-   assert.equal(rehearsal.tableCount,26);assert.equal(rehearsal.triggerCount,35);assert.ok(rehearsal.relationships.foreignKeys>0)
+   assert.equal(rehearsal.tableCount,30);assert.equal(rehearsal.triggerCount,41);assert.ok(rehearsal.relationships.foreignKeys>0)
    assert.deepEqual(await q(restored.pool,'SELECT * FROM schema_migrations ORDER BY version'),await q(source.pool,'SELECT * FROM schema_migrations ORDER BY version'))
    assert.deepEqual(await q(restored.pool,"SELECT DATE_FORMAT(expires_at,'%Y-%m-%d %H:%i:%s.%f') AS precise FROM auth_tokens ORDER BY id"),await q(source.pool,"SELECT DATE_FORMAT(expires_at,'%Y-%m-%d %H:%i:%s.%f') AS precise FROM auth_tokens ORDER BY id"))
   })

@@ -8,9 +8,10 @@ export const runtimePrivileges:Record<string,string[]>={
  auth_sessions:['SELECT','INSERT','UPDATE'],auth_tokens:['SELECT','INSERT','UPDATE'],channel_versions:['SELECT','INSERT','UPDATE'],
  branches:['SELECT','INSERT','UPDATE'],review_destinations:['SELECT','INSERT','UPDATE'],funnel_configurations:['SELECT','INSERT','UPDATE'],
  short_links:['SELECT','INSERT','UPDATE'],qr_assets:['SELECT','INSERT','UPDATE'],private_feedback:['SELECT','INSERT','UPDATE'],
- feedback_status_events:['SELECT','INSERT'],subscription_plans:['SELECT'],plan_limits:['SELECT'],subscriptions:['SELECT','INSERT','UPDATE'],
+ feedback_status_events:['SELECT','INSERT'],subscription_plans:['SELECT','INSERT','UPDATE'],plan_limits:['SELECT','INSERT'],subscriptions:['SELECT','INSERT','UPDATE'],
  usage_records:['SELECT','INSERT'],usage_counters:['SELECT','INSERT','UPDATE'],audit_logs:['SELECT','INSERT'],
  user_mfa:['SELECT','INSERT','UPDATE'],mfa_recovery_codes:['SELECT','INSERT','UPDATE'],
+ commercial_approvals:['SELECT','INSERT'],billing_agreements:['SELECT','INSERT','UPDATE'],billing_events:['SELECT','INSERT'],billable_usage:['SELECT','INSERT','UPDATE'],
 }
 const migrationDml:Record<string,string[]>={schema_migrations:['INSERT','UPDATE'],industry_channels:['INSERT'],roles:['INSERT'],permissions:['INSERT'],role_permissions:['INSERT']}
 // No inherited roles or column/routine/proxy grants are silently approximated.

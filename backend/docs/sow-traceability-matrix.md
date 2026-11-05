@@ -1,5 +1,27 @@
 # SOW traceability — Task 20
 
+## Task 21 superseding rows (2026-11-05)
+
+The Task 20 rows below remain historical evidence. These rows supersede their
+absence claims; full product completion remains unestablished. Owner has explicitly
+withheld approval of all proposed commercial numbers. Reference original SOW §6
+Phase 1 and separate Task 02 amendment; no source text or hierarchy was changed.
+
+| Requirement | Updated status | UI / API / persistence | Evidence / unresolved boundary |
+| --- | --- | --- | --- |
+| §6 Phase 1, Module 6.1 drafts | L/E: real provider adapter and local contract tests | /r/:code; POST public/funnels/:code/drafts; billable_usage, audit | ai-billing.test.mjs, setup.integration.mjs, public.test.tsx; external quality/models/latency unverified |
+| Module 5.1 three languages/copy-open | L/E: English/Hindi/Malayalam controls and editable draft | Public language selector; structured ratings/tags; clipboard then independent Google link | Frontend language/draft tests; no proof Google review posted; native-speaker/accessibility/performance acceptance pending |
+| Module 10.1 three tiers/catalog | L for authoring; E for commercial catalog | /app/catalog; admin/subscription-plans create/publish/commercial-approval; subscription_plans, plan_limits, commercial_approvals | Concurrent idempotency/conflict tests; no approved catalog/prices/quotas supplied or auto-seeded |
+| §6 Razorpay / Module 10.4 | P/E: checkout, verified captured-payment allocation, cancellation | Merchant payment panel; billing checkout/cancel/webhook; agreements/events/counters/audit | Actual MariaDB plus synthetic injected provider protocol; no real external payment or GST claim |
+| Modules 1.5/10.2 usage billing | P: view/token ledger and exact rate estimates | Public view receipts/drafts; merchant billing/metering; billable_usage | Concurrency, conservative reservations, audit rollback; settlement explicitly not_charged. Automatic overage collection unresolved |
+| Module 1.5 GST PDF invoice | G: not delivered | Provider invoice/payment binding only; explicit issuer/tax configuration | Recipient/tax/immutable invoice/PDF/credit-note workflow still required |
+| §6 onboarding bootstrap/catalog | L/E: operator CLI, no web bypass | bootstrap command + explicit policy digest; atomic root/user/membership/audit | Partial-store rejection, parallel first-run, password-preserving repeat, actual first-login MFA. Provider least-privilege bootstrap rehearsal pending |
+| Modules 6.2–6.7 | D/P as original roadmap | No later AI modules silently enabled | Auto-reply/additional languages Phase 2; audits/content/sentiment/broader fraud Phase 3; voice Phase 4 |
+| Other Task 20 Phase 1 gaps | P/G/E retained | See original rows and task-21-remaining-gaps.md | GBP onboarding, branding/print, broader analytics/compliance and acceptance are not declared complete |
+
+Full requirement/change/test inventory: [Task 21 implementation](task-21-implementation-report.md),
+[test report](task-21-test-report.md), [remaining gaps](task-21-remaining-gaps.md).
+
 Audit date: 2026-11-05. Baseline is the recovered
 [original SOW v1.0](../../docs/product/approved-scope-of-work-v1.md), the separately
 preserved [Task 02 amendment](../../docs/product/task-02-scope-amendment.md), later

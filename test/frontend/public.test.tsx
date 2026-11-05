@@ -3,6 +3,17 @@ import userEvent from '@testing-library/user-event'
 import {expect,it,vi} from 'vitest'
 import {PublicPage,validPublicFunnel} from '../../src/application/public'
 import {funnel,code,json} from './fixtures'
+import {publicText} from '../../src/application/languages'
+it('keeps both paths and structured clinic questions in Hindi and Malayalam',async()=>{
+ vi.stubGlobal('fetch',vi.fn(async()=>json(funnel)))
+ render(<PublicPage code={code}/>);await screen.findByRole('link',{name:/Google/});const user=userEvent.setup()
+ for(const language of ['hi','ml'] as const){await user.selectOptions(screen.getByLabelText('Language'),language);expect(screen.getByRole('link',{name:new RegExp(publicText[language].google)})).toBeVisible();await user.click(screen.getByRole('button',{name:publicText[language].private}));expect(screen.getByRole('button',{name:publicText[language].send})).toBeVisible();expect(screen.queryByRole('textbox')).not.toBeInTheDocument()}
+})
+it('AI drafting sends structured facts and selected language; editable text appears only after provider result',async()=>{
+ const requests:Record<string,unknown>[]=[]
+ vi.stubGlobal('fetch',vi.fn(async(url,options)=>{if(String(url).endsWith('/drafts')){requests.push(JSON.parse(String(options?.body)));return json({draft:'Service could improve.',language:'en',editable:true,posted:false})}return json(funnel)}))
+ render(<PublicPage code={code}/>);await screen.findByRole('link',{name:/Google/});const user=userEvent.setup();await user.click(screen.getByText(publicText.en.ai));await user.selectOptions(screen.getByLabelText(publicText.en.rating),'1');await user.click(screen.getByRole('button',{name:publicText.en.generate}));expect(await screen.findByRole('textbox')).toHaveValue('Service could improve.');expect(requests[0]).toMatchObject({language:'en',rating:1,tags:[]});expect(requests[0]).not.toHaveProperty('merchantId');expect(screen.getByRole('link',{name:/Google/})).toBeVisible()
+})
 it('renders independent Google/private options, submits structured clinic ratings and keeps Google after confirmation',async()=>{
  const requests:{path:string;body:Record<string,unknown>|undefined}[]=[]
  vi.stubGlobal('fetch',vi.fn(async(url,options)=>{const path=String(url);requests.push({path,body:options?.body?JSON.parse(String(options.body)):undefined});return json(path.endsWith('/feedback')?{accepted:true,confirmationId:'safe-reference'}:path.endsWith('/events')?{recorded:true}:funnel)}))

@@ -1,5 +1,17 @@
 # MariaDB migration foundation
 
+## Task 21 additive schema
+
+Versions 000067–000076 add commercial approvals, merchant-owned billing agreements,
+append-only payment receipts and separate browser-view/AI-token usage, with matching
+postconditions and six triggers. Current full manifest is 77 migrations, 30 tables,
+41 triggers. Historical versions/prefix fingerprints are unchanged. Exact runtime
+grant deltas are in database-privilege-matrix.md. No commercial seeds or production
+migration occurred. Full disposable MariaDB validation and remaining provider gates
+are recorded in task-21-test-report.md and task-21-remaining-gaps.md. Apply the full
+ordered prefix using existing approval/preflight/lock/recovery controls; never
+baseline, skip or automatically rerun an incomplete migration.
+
 ## Task 17 current operator workflow
 
 All 000000-000066 migration/verification files remain unchanged. This guide's

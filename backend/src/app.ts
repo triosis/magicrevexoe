@@ -15,6 +15,11 @@ import { feedbackRoutes } from './feedback/routes.js'
 import type { FeedbackService } from './feedback/service.js'
 import {subscriptionRoutes} from './subscriptions/routes.js'
 import type {SubscriptionService} from './subscriptions/service.js'
+import type {CatalogService} from './subscriptions/catalog.js'
+import type {DraftService} from './ai/service.js'
+import {draftRoutes} from './ai/routes.js'
+import type {BillingService} from './billing/service.js'
+import {billingRoutes} from './billing/routes.js'
 
 type Dependencies = {
   env: Env
@@ -26,6 +31,9 @@ type Dependencies = {
   funnels?: FunnelService | undefined
   feedback?: FeedbackService | undefined
   subscriptions?: SubscriptionService | undefined
+  catalog?: CatalogService | undefined
+  drafts?: DraftService | undefined
+  billing?: BillingService | undefined
 }
 
 // Only emit known driver codes and fixed descriptions. Driver messages can
@@ -50,7 +58,7 @@ export function safeDatabaseFailure(error: unknown): string {
   return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
 }
 
-export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business, funnels, feedback, subscriptions }: Dependencies) {
+export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business, funnels, feedback, subscriptions, catalog, drafts, billing }: Dependencies) {
   let lastDatabaseFailure = ''
   let lastDatabaseFailureAt = 0
   const app = express()
@@ -69,10 +77,18 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, b
     credentials: false,
     maxAge: 600,
   }))
+  app.post('/api/v1/billing/webhooks/razorpay',express.raw({type:'application/json',limit:'64kb'}),async(req,res)=>{
+    res.set('Cache-Control','no-store')
+    if(!billing)throw new HttpError(503,'Billing unavailable')
+    if(!Buffer.isBuffer(req.body))throw new HttpError(400,'Raw JSON payment event required')
+    res.json(await billing.webhook(req.body,req.get('x-razorpay-signature')??'',req.get('x-razorpay-event-id')??''))
+  })
   app.use(express.json({ limit: '16kb' }))
+  app.use('/api/v1',billingRoutes(auth,billing))
   app.use('/api/v1/auth',authRoutes(auth))
   app.use('/api/v1/tenants',tenantRoutes(auth,tenants))
-  app.use('/api/v1',subscriptionRoutes(auth,subscriptions))
+  app.use('/api/v1',subscriptionRoutes(auth,subscriptions,catalog))
+  app.use('/api/v1',draftRoutes(drafts))
   app.use('/api/v1',feedbackRoutes(auth,feedback))
   app.use('/api/v1',funnelRoutes(auth,funnels))
   app.use('/api/v1',businessRoutes(auth,business))

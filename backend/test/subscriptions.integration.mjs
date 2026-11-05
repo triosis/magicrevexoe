@@ -1,3 +1,4 @@
+import {approveSyntheticPlan} from './commercial-fixtures.mjs'
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {once} from 'node:events'
@@ -43,6 +44,7 @@ test('subscription and usage APIs on disposable MariaDB 11.8.9',{timeout:120000}
   plan=await insert('subscription_plans',{code:'fixture',version:1,name:'Synthetic plan',price:'17.25',currency:'INR',interval_unit:'month'})
   for(const [metric,limit]of Object.entries(limitValues))await insert('plan_limits',{plan_id:plan,metric,limit_value:limit})
   await query("UPDATE subscription_plans SET status='published' WHERE id=?",[plan])
+  await approveSyntheticPlan(query,plan)
   server=createServer(createApp({env,auth,tenants,subscriptions,checkDatabase:async()=>{},isShuttingDown:()=>false}));server.listen(0,'127.0.0.1');await once(server,'listening');base='http://127.0.0.1:'+server.address().port
   await t.test('published catalog preserves configured prices/limits and hides drafts',async()=>{
    const r=await request('GET','/subscription-plans','merchant');assert.equal(r.status,200);assert.equal(r.body.plans.length,1);assert.equal(r.body.plans[0].price,'17.25');assert.equal(r.body.plans[0].limits.find(l=>l.metric==='short_links').limit,null)

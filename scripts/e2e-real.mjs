@@ -1,3 +1,7 @@
+import {approveSyntheticPlan} from '../backend/test/commercial-fixtures.mjs'
+import {CatalogService} from '../backend/dist/subscriptions/catalog.js'
+import {BillingService} from '../backend/dist/billing/service.js'
+import {DraftService} from '../backend/dist/ai/service.js'
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {createServer as secureServer} from 'node:https'
@@ -79,12 +83,14 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
   plan=(await query('SELECT id FROM subscription_plans'))[0].id
   for(const metric of ['branches','staff_seats','feedback_submissions','short_links','qr_assets'])await query('INSERT INTO plan_limits(plan_id,metric,limit_value) VALUES (?,?,?)',[plan,metric,metric==='feedback_submissions'?'20':'5'])
   await query("UPDATE subscription_plans SET status='published' WHERE id=?",[plan])
+  await approveSyntheticPlan(query,plan)
   backend=secureServer(tls);backend.listen(0,'127.0.0.1');await once(backend,'listening');api='https://127.0.0.1:'+backend.address().port
   process.env.VITE_API_URL=api+'/api/v1'
   frontend=await viteServer({envDir:false,server:{host:'127.0.0.1',port:0,https:tls}});await frontend.listen();web='https://127.0.0.1:'+frontend.httpServer.address().port;env.CORS_ORIGINS=[web]
   const auth=new AuthService(pool,randomBytes(32),undefined,undefined,randomBytes(32)),delivery={kind:'test',verify:async()=>{},send:async message=>{deliveries.set(message.email,message)}}
   const tenants=new TenantService(pool,auth,delivery),business=new BusinessService(tenants,auth),funnels=new FunnelService(pool,tenants,auth,api,web),feedback=new FeedbackService(tenants,auth,funnels),subscriptions=new SubscriptionService(tenants)
-  backend.on('request',createApp({env,auth,tenants,business,funnels,feedback,subscriptions,checkDatabase:createReadinessCheck(pool),isShuttingDown:()=>false}))
+  const catalog=new CatalogService(tenants),billing=new BillingService(pool,tenants,subscriptions),drafts=new DraftService(funnels,auth)
+  backend.on('request',createApp({env,auth,tenants,business,funnels,feedback,subscriptions,catalog,billing,drafts,checkDatabase:createReadinessCheck(pool),isShuttingDown:()=>false}))
   browser=await chromium.launch({channel:'chrome',headless:true})
   // Deny all non-loopback network, including Google. No local API responses are intercepted.
   const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}})
@@ -93,6 +99,8 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
   page=await context.newPage();publicPage=await context.newPage()
   await checked('browser Super Admin login, platform channel publication and reseller provisioning',async()=>{
    superPage=page;superActor=await browserLogin(page,'super@example.invalid')
+   await page.getByRole('link',{name:'Subscription catalog',exact:true}).first().click()
+   await page.getByRole('heading',{name:/Synthetic verification plan/}).waitFor()
    channel=(await request('GET','/industry-channels',superActor)).body.channels.find(c=>c.code==='clinic_healthcare').id
    const draft=await request('POST',`/industry-channels/${channel}/versions`,superActor,{version:1,displayName:'Local service experience',title:'How was your service experience?'});assert.equal(draft.status,201);version=draft.body.id
    assert.equal((await request('POST',`/industry-channels/${channel}/versions/${version}/publish`,superActor,{})).status,200)

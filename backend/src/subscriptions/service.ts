@@ -1,9 +1,11 @@
 import type {PoolConnection,RowDataPacket,ResultSetHeader} from 'mysql2/promise'
+import {randomBytes} from 'node:crypto'
 import type {Principal} from '../auth/authorization.js'
 import {select,type Values} from '../auth/database.js'
 import {TenantService,type TenantActor,type Account,type Page} from '../tenants/service.js'
 import {HttpError} from '../middleware/error-handler.js'
 import {quotas} from './quota.js'
+import {approvedTerms} from '../billing/terms.js'
 import {metrics,periodKeys,periodState,dateKey,quota,transition,type Metric,type Assignment,type Status,type HistoryInput} from './model.js'
 
 type Sub=RowDataPacket&{id:string;tenant_id:string;plan_id:string;status:Status;lock_version:number;period_start_key:string;period_end_key:string}
@@ -37,7 +39,7 @@ export class SubscriptionService{
  private async observed(db:PoolConnection,tenant:string,metric:Metric,start:string,end:string):Promise<string>{
   return quotas.observed(db,tenant,metric,start,end)
  }
- private async initialize(db:PoolConnection,actor:TenantActor,owner:Account,sub:Sub,now:Date){
+ private async initialize(db:PoolConnection,actor:TenantActor|undefined,owner:Account,sub:Sub,now:Date){
   if(!Number(owner.effective)||!allocated(sub.status)||this.effective(sub,owner,now)==='expired'||this.effective(sub,owner,now)==='scheduled')conflict('Subscription period is not active')
   const plan=await this.plan(db,sub.plan_id);if(!plan.limitsComplete)conflict('Plan limits are not initialized')
   let created=0
@@ -58,13 +60,15 @@ export class SubscriptionService{
    }
    await db.execute('INSERT INTO usage_counters(tenant_id,subscription_id,metric,period_start,period_end,used) VALUES (?,?,?,?,?,?)',[owner.id,sub.id,metric,sub.period_start_key,sub.period_end_key,used]);created++
   }
-  await this.tenants.auditChange(db,actor,owner.id,'subscription.usage_initialized',{createdCounters:String(created)},'subscription',sub.id)
+  if(actor)await this.tenants.auditChange(db,actor,owner.id,'subscription.usage_initialized',{createdCounters:String(created)},'subscription',sub.id)
+  else await db.execute("INSERT INTO audit_logs(event_id,tenant_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?,?,'subscription.usage_initialized','subscription',?,?,'success',?)",[randomBytes(16),owner.id,sub.id,randomBytes(16),JSON.stringify({createdCounters:String(created),source:'verified_payment'})])
   return{initialized:true,createdCounters:created}
  }
  async assign(principal:Principal,id:string,input:Assignment){return this.tenants.withActor(principal,async(db,actor)=>{
   const owner=await this.merchant(db,actor,id,true),now=await this.clock(db)
   if(!Number(owner.effective))conflict('Merchant account is suspended')
   const plan=await this.plan(db,input.planId,true);if(!plan.limitsComplete)conflict('Plan limits are not initialized')
+  if(BigInt(plan.price.replace('.',''))>0n)await approvedTerms(db,input.planId)
   const start=input.periodStart??now
   if(start>now||input.periodEnd<=now||input.periodEnd<=start)conflict('Assignment must cover the current server time')
   const previous=await this.latest(db,id)
@@ -82,9 +86,30 @@ export class SubscriptionService{
   return this.dto(db,sub,owner,now)
  })}
  async initializeUsage(principal:Principal,id:string,subscriptionId:string){return this.tenants.withActor(principal,async(db,actor)=>{const owner=await this.merchant(db,actor,id,true),sub=await this.sub(db,id,subscriptionId);return this.initialize(db,actor,owner,sub,await this.clock(db))})}
+ // Backend-only boundary, called after verified provider binding under the root lock.
+ async allocateVerifiedPayment(db:PoolConnection,merchant:string,planId:string,start:Date,end:Date){
+  const chain=await select(db,"WITH RECURSIVE chain AS (SELECT id,parent_id,status,kind,0 AS depth FROM tenants WHERE id=? UNION ALL SELECT t.id,t.parent_id,t.status,t.kind,c.depth+1 FROM tenants t JOIN chain c ON t.id=c.parent_id WHERE c.depth<3) SELECT * FROM chain ORDER BY depth",[merchant])
+  if(chain[0]?.kind!=='merchant'||chain.at(-1)?.kind!=='platform'||chain.some(r=>r.status!=='active'))conflict('Paid allocation requires active merchant ancestry')
+  const now=await this.clock(db);if(start>now||end<=now||end<=start)conflict('Paid period requires reconciliation')
+  await approvedTerms(db,planId);const plan=await this.plan(db,planId,true);if(!plan.limitsComplete)conflict('Paid plan limits are unavailable')
+  const old=await this.latest(db,merchant)
+  if(old&&allocated(old.status)){
+   if(old.plan_id===planId&&old.period_start_key===dateKey(start)&&old.period_end_key===dateKey(end))return{id:old.id,created:false}
+   if(!Number(old.period_elapsed)||old.period_end_key>dateKey(start))conflict('Paid period overlaps the current allocation')
+   await db.execute("UPDATE subscriptions SET status='expired',ends_at=current_period_end,lock_version=lock_version+1 WHERE tenant_id=? AND id=?",[merchant,old.id])
+  }
+  const ended=(await select(db,"SELECT DATE_FORMAT(MAX(COALESCE(ends_at,current_period_end)),'%Y-%m-%d %H:%i:%s.%f') AS ended FROM subscriptions WHERE tenant_id=?",[merchant]))[0]!
+  if(ended.ended&&ended.ended>dateKey(start))conflict('Paid period overlaps subscription history')
+  await db.execute("INSERT INTO subscriptions(tenant_id,plan_id,status,starts_at,current_period_start,current_period_end) VALUES (?,?,'active',?,?,?)",[merchant,planId,start,start,end])
+  const sub=(await this.latest(db,merchant))!,owner={...chain[0],id:merchant,effective:1} as Account
+  await this.initialize(db,undefined,owner,sub,now)
+  await db.execute("INSERT INTO audit_logs(event_id,tenant_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?,?,'subscription.payment_allocated','subscription',?,?,'success','{}')",[randomBytes(16),merchant,sub.id,randomBytes(16)])
+  return{id:sub.id,created:true}
+ }
  async changeStatus(principal:Principal,id:string,subscriptionId:string,input:{status:Status;lockVersion:number}){return this.tenants.withActor(principal,async(db,actor)=>{
   const owner=await this.merchant(db,actor,id,true),sub=await this.sub(db,id,subscriptionId),now=await this.clock(db)
   if(sub.lock_version!==input.lockVersion||!transition(sub.status,input.status))conflict('Subscription version or status conflict')
+    if(allocated(input.status)){const plan=await this.plan(db,sub.plan_id);if(BigInt(plan.price.replace('.',''))>0n)await approvedTerms(db,sub.plan_id)}
   if(input.status==='expired'&&!Number(sub.period_elapsed))conflict('Subscription period has not ended; use cancellation')
   if(allocated(input.status)&&(!Number(owner.effective)||this.effective(sub,owner,now)==='expired'||this.effective(sub,owner,now)==='scheduled'))conflict('Subscription period or merchant is inactive')
   let canceledAt=dateKey(now);if(canceledAt>sub.period_end_key)canceledAt=sub.period_end_key;if(canceledAt<sub.starts_key)canceledAt=sub.starts_key

@@ -1,5 +1,17 @@
 # Merchant subscriptions and usage APIs
 
+## Task 21 catalog and payment extension
+
+See [Task 21 workflows](task-21-workflows.md) for versioned catalog creation,
+publication, immutable commercial approval, hosted checkout, raw signed payment
+webhooks, cancellation, metering and non-issuable invoice preparation. Paid
+assignment/reactivation now refuses missing approved commercial configuration.
+Existing free/noncommercial resource quota behavior is preserved. The five resource
+metrics are distinct from browser views and AI tokens. All settlement, overage
+charging, refunds, credit notes and automated dunning remain disabled pending an
+approved finance-reviewed policy. See task-21-remaining-gaps.md.
+
+
 Task 13 now enforces the five existing quotas at service transaction boundaries.
 See [current quota contract](quotas-api.md). Earlier no-enforcement/pre-billing notes
 are historical; merchant subscription/counters must precede first admin acceptance

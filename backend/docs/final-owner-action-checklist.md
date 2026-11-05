@@ -1,5 +1,25 @@
 # Final owner actions — Task 20
 
+## Task 21 development update (2026-11-05)
+
+The historical Task 20 absence statements below are superseded only for the
+implemented subset in [Task 21 implementation](task-21-implementation-report.md).
+Real Claude drafting, English/Hindi/Malayalam public controls, explicit operator
+bootstrap, catalog authoring and the Razorpay checkout/captured-payment workflow
+are now implemented locally. [Test evidence](task-21-test-report.md) distinguishes
+synthetic provider protocol tests from actual MariaDB/browser tests.
+
+**Application remains incomplete.** No approved commercial catalog exists. Paid
+activation refuses missing commercial approval; no prices, limits, overage rates
+or commercial defaults were seeded. GST PDF invoices, automatic overage settlement,
+dunning/reconciliation and other Task 20 onboarding/compliance gaps remain open.
+Real AI/payment provider behavior, native-language quality, latency, tax/legal
+acceptance and provider grants/configuration remain unverified. See
+[remaining gaps and owner decisions](task-21-remaining-gaps.md) and
+[operator/API workflows](task-21-workflows.md). No Hostinger/production connection,
+migration, secret/configuration change or deployment occurred.
+
+
 2026-11-05. Application incomplete against the full recovered SOW. Local implemented
 workflows are available for assisted acceptance in a prepared isolated environment.
 No production activity is authorized by this checklist.

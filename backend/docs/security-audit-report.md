@@ -1,5 +1,32 @@
 # Task 14 security audit
 
+## Task 21 local security delta
+
+See task-21-implementation-report.md and task-21-test-report.md. Added customer AI
+uses only signed current forms and allowlisted service ratings/tags, with no
+medical/free-text feedback input. Output is bounded plain text, two to four
+sentences, language-checked and screened conservatively; it remains editable and
+is never automatically posted. These checks are not proof of perfect model safety.
+Live provider quality, retention/DPA and native-speaker review remain open.
+
+AI and payment network calls are outside retryable tenant transactions. Unique
+request/event/payment keys, immutable bindings and the established root mutex
+prevent duplicate successful records. Ambiguous operations retain reserved/unknown
+state and require reconciliation rather than arbitrary retries. Audit failures
+roll back completed local results. Exact raw-body webhook signatures precede parsing;
+captured payment and paid invoice are fetched and bound before allocation. Client
+callbacks grant no access. Staff and peer financial/catalog writes are denied.
+
+First-owner bootstrap is operator-only, target/digest/manifest checked, shares the
+migration lock, preserves existing passwords and issues no session. Actual MFA is
+required at first login. Runtime receives no ledger/DDL/global grants. Effective
+provider bootstrap grants remain a blocker. Paid activation requires explicit
+immutable commercial approval; no missing commercial value becomes unlimited.
+
+Outstanding: GST PDF invoices, automatic overage settlement, reconciliation/dunning,
+real provider verification, shared multi-instance throttles, AI retention and broader
+Task 20 compliance gaps. No production/provider contact or secret change occurred.
+
 ## Task 16 local remediation update (2026-11-05)
 
 C2's platform MFA implementation gap is addressed locally: protected TOTP QR

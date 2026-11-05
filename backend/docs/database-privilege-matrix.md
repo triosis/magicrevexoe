@@ -1,5 +1,35 @@
 # Database privilege matrix - Task 17
 
+## Task 21 additive privilege delta
+
+Current manifest: 77 migrations, 30 tables, 41 triggers. Historical Task 17 counts
+below describe its then-current prefix. Migration account privileges are unchanged:
+new SQL adds only CREATE TABLE/CREATE TRIGGER and metadata SELECT, no seed DML,
+routine, foreign DEFINER, global privilege or destructive rollback.
+
+Runtime exact deltas (in runtimePrivileges, enforced by existing grant preflight):
+
+| Table | Runtime required privileges |
+| --- | --- |
+| subscription_plans | SELECT, INSERT, UPDATE (versioned authoring and publication) |
+| plan_limits | SELECT, INSERT (draft completeness; immutable after publication) |
+| commercial_approvals | SELECT, INSERT (immutable approval; no UPDATE/DELETE) |
+| billing_agreements | SELECT, INSERT, UPDATE |
+| billing_events | SELECT, INSERT (append-only receipts) |
+| billable_usage | SELECT, INSERT, UPDATE (reserved → completed/unknown only) |
+
+All other runtime entries remain unchanged. Catalog APIs still require MFA Super
+Admin authorization; grants alone are not tenant SELECT isolation. New merchant
+billing operations require own merchant_admin or scoped Super Admin. Existing
+restricted-runtime integration tests derive and enforce the complete updated map;
+DDL, ledger access, append-only UPDATE and excessive grants remain refused.
+
+Separate first-owner bootstrap needs schema SELECT (ledger/metadata included) and
+INSERT only on tenants, users, tenant_memberships, audit_logs. It needs no UPDATE,
+DELETE, CREATE, ALTER, TRIGGER or global privilege. Do not combine this account with
+runtime. Its provider effective grants/definer behavior remain unverified; local
+bootstrap scenarios use fixture admin. See task-21-workflows.md.
+
 2026-11-05. Derived from all 67 actual migration statements and current application
 SQL, then tested with separate restricted accounts on disposable MariaDB 11.8.9.
 No production account/grant was inspected, requested, stored or changed.

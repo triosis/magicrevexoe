@@ -1,0 +1,5 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billing_agreements' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billing_agreements')=11
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billing_agreements' AND COLUMN_NAME IN ('id','tenant_id','tenant_kind','plan_id','request_key','provider_id','checkout_url','status','last_period_end','created_at','updated_at'))=11
+AND (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billing_agreements' AND INDEX_NAME IN ('uq_billing_request','uq_billing_provider','uq_billing_owner','PRIMARY'))=4
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='billing_agreements' AND CONSTRAINT_NAME IN ('fk_billing_merchant','ck_billing_merchant','fk_billing_approval'))=3) AS satisfied

@@ -39,7 +39,7 @@ test('Phase 1 business schema on disposable MariaDB 11.8.9',{timeout:120000},asy
    const status=await runMigrations(pool,files,'status')
    assert.equal(status.applied.length,files.length);assert.deepEqual(status.pending,[])
    const tables=await query('SELECT ENGINE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()')
-   assert.equal(tables.length,26)
+   assert.equal(tables.length,30)
    assert.ok(tables.every(x=>x.ENGINE==='InnoDB'&&x.TABLE_COLLATION==='utf8mb4_unicode_ci'))
   })
   await t.test('safe catalog/role seeds are repeatable, with no administrator or tenant seed',async()=>{

@@ -1,0 +1,5 @@
+SELECT ((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billable_usage' AND ENGINE='InnoDB' AND TABLE_COLLATION='utf8mb4_unicode_ci')=1
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billable_usage')=18
+AND (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billable_usage' AND COLUMN_NAME IN ('id','tenant_id','subscription_id','branch_id','short_link_id','metric','request_key','form_digest','input_sha256','language','status','reserved_tokens','input_tokens','output_tokens','draft_text','expires_at','created_at','updated_at'))=18
+AND (SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='billable_usage' AND INDEX_NAME IN ('uq_billable_request','ix_billable_period','PRIMARY'))=3
+AND (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='billable_usage' AND CONSTRAINT_NAME IN ('fk_billable_subscription','fk_billable_link','ck_billable_result'))=3) AS satisfied

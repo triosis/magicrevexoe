@@ -8,6 +8,11 @@ import { BusinessService } from './business/service.js'
 import { FunnelService } from './funnels/service.js'
 import { FeedbackService } from './feedback/service.js'
 import {SubscriptionService} from './subscriptions/service.js'
+import {CatalogService} from './subscriptions/catalog.js'
+import {configuredClaude} from './ai/provider.js'
+import {DraftService} from './ai/service.js'
+import {BillingService} from './billing/service.js'
+import {configuredRazorpay} from './billing/provider.js'
 
 async function main() {
   const env = loadEnv()
@@ -19,7 +24,12 @@ async function main() {
   const funnels=auth&&tenants?new FunnelService(pool,tenants,auth,process.env.PUBLIC_FUNNEL_ORIGIN,process.env.PUBLIC_WEB_ORIGIN):undefined
   const feedback=auth&&tenants&&funnels?new FeedbackService(tenants,auth,funnels):undefined
   const subscriptions=tenants?new SubscriptionService(tenants):undefined
-  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions })
+  const catalog=tenants?new CatalogService(tenants):undefined
+  const provider=configuredClaude(process.env)
+  const drafts=funnels&&auth?new DraftService(funnels,auth,provider):undefined
+  const paymentProvider=configuredRazorpay(process.env)
+  const billing=tenants&&subscriptions?new BillingService(pool,tenants,subscriptions,paymentProvider):undefined
+  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions,catalog,drafts,billing })
   const server = createServer(app)
   server.requestTimeout = 30_000
   server.headersTimeout = 15_000
