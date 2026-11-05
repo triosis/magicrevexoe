@@ -1,5 +1,24 @@
 # Hostinger deployment requirements — Task 14
 
+## Task 19 current integration status (2026-11-05)
+
+Implemented and locally tested: runtime verified database TLS with pinned approved
+CA and DNS identity, production environment checks, SMTP TLS/STARTTLS and explicit
+no-mail verification command, safe result events with allowlisted error codes,
+production frontend API validation and exact CSP API origin. See
+[external-integration-report.md](external-integration-report.md),
+[deployment-runbook.md](deployment-runbook.md) and
+[production-environment-reference.md](production-environment-reference.md).
+
+Externally verified: none. Owner action required: provider TLS/grants/runtime,
+DNS/HTTPS/proxy/restarts, real SMTP sender and inbox evidence, credential rotation,
+MFA rollout and key custody, representative restores/off-site backup/RPO/RTO,
+approved bootstrap/catalog and security/privacy sign-off. Not implemented: durable
+mail outbox, shared ingress limiter/alerts, automatic secret rotation and remote
+backup execution. No Hostinger connection, production changes or external test mail.
+Production remains blocked; historical task sections below are evidence for their
+original scope, not assertions that Task 19 code is absent.
+
 ## Task 18 backup/restore handoff
 
 The actual local rehearsal now passes on MariaDB 11.8.9; see
@@ -38,8 +57,7 @@ provider compatibility and production execution remain separately blocked.
   effects and literal database-grant escaping. Do not assume ALL PRIVILEGES,
   arbitrary role graphs, global trigger privileges or specific Hostinger grants.
 - [ ] Verify trusted CA chain/hostname and pinned CA bytes, TLS cipher, exact
-  transport target and server identity. Migration transport support does not add
-  application runtime TLS; H2 remains open for remote application connections.
+  transport target and server identity. Task 19 also implements runtime TLS; provider compatibility still requires evidence.
 - [ ] Read-only inventory cannot prove trigger creation, InnoDB rollback, FK/CHECK
   behavior, named locks across DDL commits, interruption, session affinity or
   provider execution timeouts. Test those only in a separately authorized

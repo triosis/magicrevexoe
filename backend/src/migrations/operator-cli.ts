@@ -28,7 +28,7 @@ async function main(){
  if(!user||!password)throw new MigrationError('EXPLICIT_MIGRATION_CREDENTIALS_REQUIRED')
  const ca=policy.tlsCaFile?await readFile(resolve(dirname(flags['--target']),policy.tlsCaFile),'utf8'):undefined
  if(ca&&createHash('sha256').update(ca).digest('hex')!==policy.tlsCaSha256)throw new MigrationError('TLS_CA_FINGERPRINT_MISMATCH')
- const pool=createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:5000,charset:'utf8mb4',timezone:'Z',multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true,...(ca?{ssl:{ca,rejectUnauthorized:true,verifyIdentity:true}}:{})})
+ const pool=createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:5000,charset:'utf8mb4',timezone:'Z',multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true,...(ca?{ssl:{ca,rejectUnauthorized:true,verifyIdentity:true,minVersion:'TLSv1.2'}}:{})})
  const audit=command==='apply'?await open(flags['--audit']!,'wx',0o600):undefined
  let interrupted=false
  const interrupt=()=>{interrupted=true};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt)

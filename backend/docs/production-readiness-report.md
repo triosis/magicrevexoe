@@ -1,5 +1,24 @@
 # Task 14 production-readiness audit
 
+## Task 19 current integration status (2026-11-05)
+
+Implemented and locally tested: runtime verified database TLS with pinned approved
+CA and DNS identity, production environment checks, SMTP TLS/STARTTLS and explicit
+no-mail verification command, safe result events with allowlisted error codes,
+production frontend API validation and exact CSP API origin. See
+[external-integration-report.md](external-integration-report.md),
+[deployment-runbook.md](deployment-runbook.md) and
+[production-environment-reference.md](production-environment-reference.md).
+
+Externally verified: none. Owner action required: provider TLS/grants/runtime,
+DNS/HTTPS/proxy/restarts, real SMTP sender and inbox evidence, credential rotation,
+MFA rollout and key custody, representative restores/off-site backup/RPO/RTO,
+approved bootstrap/catalog and security/privacy sign-off. Not implemented: durable
+mail outbox, shared ingress limiter/alerts, automatic secret rotation and remote
+backup execution. No Hostinger connection, production changes or external test mail.
+Production remains blocked; historical task sections below are evidence for their
+original scope, not assertions that Task 19 code is absent.
+
 ## Task 18 current backup/recovery status (2026-11-05)
 
 Actual encrypted native export and import into a separate fresh disposable

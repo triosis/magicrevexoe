@@ -104,3 +104,41 @@ do not test by connecting this workspace to Hostinger. Check synthetic provider
 staging operations, mail receipt, reconnect/restart and denied old credentials.
 Keep non-secret owner/timestamp/version/rejection evidence. SMTP operation,
 historical credential rotation and production grants remain unverified locally.
+
+## Task 19 backup-key rotation and failure recovery
+
+Prepared procedure only; no production secret has been changed. BACKUP_ENCRYPTION_KEY
+is independent of JWT/MFA/database/SMTP credentials. BACKUP_KEY_ID is a non-secret
+version identifier recorded in the authenticated archive metadata, not a keyring or
+an automatic key lookup service. The executor accepts one operator-supplied key.
+
+1. Security/backup owners approve rotation, retention and a two-person key recovery
+   test. Inventory every retained archive and its key version, including off-site
+   replicas. Keep encryption keys in a separate protected recovery store.
+2. Generate a new independent 32-byte key through approved secret management;
+   record only its version identifier. Never overwrite the sole old-key copy.
+3. In an isolated disposable rehearsal, make a new backup with the new key/version;
+   authenticate, restore and compare all schema/data/ledger/application behavior.
+   Demonstrate old archives still restore with their matching old key, and fail
+   authentication with the wrong key. File checksums alone are insufficient.
+4. After separate owner approval, switch the backup job's protected key/version
+   together; verify the first new archive and actual restore before retiring any
+   old job configuration. No API runtime or user session changes are needed for
+   backup-only key rotation. JWT rotation still requires explicit session revocation;
+   opaque refresh tokens have no signing key to rotate.
+5. Retain old keys for every retained archive that needs them. If rewrapping old
+   archives is necessary, use separately reviewed tooling, a fresh nonce and new
+   exclusive artifact paths, full authenticated restore verification and reviewed
+   metadata; no in-place archive reencrypt utility is shipped.
+6. On failure pause publication, quarantine incomplete archives and retain the last
+   verified backup/key pair. Diagnose in isolation. Never label a failed archive
+   complete or delete the only usable key. Suspected compromise requires incident
+   review: returning to a compromised key is not safe recovery. Retire keys only
+   after all dependent backups expire or are safely replaced under approved policy.
+
+Owner actions remain: actual provider credential/signing-key revocation evidence,
+protected MFA/backup key custody and recovery, reviewed MFA reencryption tooling,
+off-site immutable/versioned storage, scheduling/retention and incident ownership.
+No automatic rotation, multi-key MFA decryption, remote backup executor or production
+rotation is claimed. Runtime verified database TLS and explicit TLS SMTP diagnostics
+are now implemented; provider compatibility/delivery are still unverified.

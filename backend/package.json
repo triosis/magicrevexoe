@@ -31,6 +31,7 @@
     "migrate:manifest": "npm run build && node scripts/schema-manifest.mjs",
     "test:migration-safety:integration": "npm run build && node --test test/migration-safety.integration.mjs",
     "test:integration": "npm run build && node --test --test-concurrency=1 test/*integration.mjs",
+    "smtp:verify": "npm run build && node dist/auth/smtp-cli.js",
     "recovery": "npm run build && node scripts/recovery/cli.mjs",
     "test:recovery:integration": "npm run build && node --test test/recovery.integration.mjs"
   },

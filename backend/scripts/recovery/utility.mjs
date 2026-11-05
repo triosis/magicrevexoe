@@ -13,7 +13,7 @@ import {MigrationError} from '../../dist/migrations/runner.js'
 import {privateDirectory,protectOutput,clientConfiguration,cleanup,checkClient,nativeEnvironment} from './files.mjs'
 import {keys,encryptDump,publish,writeManifest,decryptVerified} from './archive.mjs'
 
-export function localPolicy(raw){const p=targetPolicy.parse(raw);if(p.environment!=='local'||!['127.0.0.1','::1'].includes(p.host))fail('DISPOSABLE_LOCAL_TARGET_REQUIRED');if(p.tlsCaFile||p.tlsCaSha256)fail('LOCAL_RECOVERY_TLS_POLICY_UNSUPPORTED');return p}
+export function localPolicy(raw){if(!raw||raw.environment!=='local'||!['127.0.0.1','::1'].includes(raw.host))fail('DISPOSABLE_LOCAL_TARGET_REQUIRED');const p=targetPolicy.parse(raw);if(p.tlsCaFile||p.tlsCaSha256)fail('LOCAL_RECOVERY_TLS_POLICY_UNSUPPORTED');return p}
 function poolFor(policy,user,password){return createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:3000,charset:'utf8mb4',timezone:'Z',dateStrings:true,multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true})}
 async function acquire(db,policy){
  await verifyTarget(db,policy)

@@ -1,4 +1,5 @@
 import {z} from 'zod'
+import {isIP} from 'node:net'
 import type {Pool,PoolConnection,RowDataPacket} from 'mysql2/promise'
 import {runMigrations,MigrationError,supportedVersion,type Migration} from './runner.js'
 import {digest,validateManifest,verifySchema,type SchemaManifest} from './schema.js'
@@ -12,6 +13,7 @@ export const targetPolicy=z.object({
  const local=['127.0.0.1','::1'].includes(p.host)
  if(p.environment==='local'&&(!local||!/^magicreview_migration_[a-z0-9_]+$/.test(p.database)))c.addIssue({code:'custom',message:'Invalid local target'})
  if(p.environment!=='local'&&(!p.tlsCaFile||!p.tlsCaSha256))c.addIssue({code:'custom',message:'Verified pinned TLS CA required'})
+ if(p.environment!=='local'&&isIP(p.host))c.addIssue({code:'custom',message:'Verified TLS requires DNS hostname'})
 })
 export type TargetPolicy=z.infer<typeof targetPolicy>
 export type Approval={digest:string;expiresAt:number}

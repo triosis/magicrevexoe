@@ -24,5 +24,6 @@ test('operator CLI requires target/environment and explicit production approval 
  assert.match(invoke(['preflight','--target',file,'--environment','staging']).stderr,/TARGET_ENVIRONMENT_MISMATCH/)
  await assert.rejects(operatorMigrations({},[],{},targetPolicy.parse(policy),'apply'),/EXPLICIT_PRODUCTION_CONFIRMATION_REQUIRED/)
  assert.equal(targetPolicy.safeParse({...policy,tlsCaFile:undefined}).success,false)
+ assert.equal(targetPolicy.safeParse({...policy,host:'127.0.0.1'}).success,false)
  assert.equal(targetPolicy.safeParse({...policy,environment:'local',host:'127.0.0.1',database:'unexpected'}).success,false)
 })

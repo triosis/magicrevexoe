@@ -44,9 +44,10 @@ not passwords. The connected DATABASE(), @@hostname and CURRENT_USER() must matc
 | tlsCaSha256 | SHA-256 of the exact PEM file bytes; binds trust configuration to approval |
 
 Staging/production policies require both TLS fields. mysql2 uses certificate-chain
-validation and verifyIdentity=true; no verification-disable option exists. The
+validation and verifyIdentity=true; no verification-disable option exists. Task 19
+requires DNS hostnames for staging/production TLS and minimum TLS 1.2. The
 session must report a nonempty TLS cipher. This transport is implemented for the
-migration CLI only; application runtime TLS remains a separate blocker. No real
+migration CLI; Task 19 separately implements verified application runtime TLS. No real
 remote TLS handshake or provider topology was verified in this task.
 
 Local policies must select loopback and a magicreview_migration_* disposable name.

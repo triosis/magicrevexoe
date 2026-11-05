@@ -1,5 +1,24 @@
 # Production blockers — Task 14
 
+## Task 19 current integration status (2026-11-05)
+
+Implemented and locally tested: runtime verified database TLS with pinned approved
+CA and DNS identity, production environment checks, SMTP TLS/STARTTLS and explicit
+no-mail verification command, safe result events with allowlisted error codes,
+production frontend API validation and exact CSP API origin. See
+[external-integration-report.md](external-integration-report.md),
+[deployment-runbook.md](deployment-runbook.md) and
+[production-environment-reference.md](production-environment-reference.md).
+
+Externally verified: none. Owner action required: provider TLS/grants/runtime,
+DNS/HTTPS/proxy/restarts, real SMTP sender and inbox evidence, credential rotation,
+MFA rollout and key custody, representative restores/off-site backup/RPO/RTO,
+approved bootstrap/catalog and security/privacy sign-off. Not implemented: durable
+mail outbox, shared ingress limiter/alerts, automatic secret rotation and remote
+backup execution. No Hostinger connection, production changes or external test mail.
+Production remains blocked; historical task sections below are evidence for their
+original scope, not assertions that Task 19 code is absent.
+
 Audit date: 2026-11-05. Verdict: **NOT READY — CRITICAL BLOCKERS**.
 No production access/deployment/settings/migrations occurred. This register is an
 audit finding list, not permission to perform the remediation against production.
@@ -18,7 +37,7 @@ Severity is release impact, not a claim of an exploited vulnerability.
 | C4 Critical | Blocked; controls locally tested | Task 17 adds an explicit operator executor with target/privilege/schema preflight, production confirmation, approval and audit; actual provider baseline/data mapping, restore and execution authorization remain absent. | DBA/release: reviewed production inventory, restored-clone rehearsal, exact grant/TLS/definer proof, approved window and separate execution authorization. See production-migration-runbook.md; never use the legacy local CLI against production. |
 | C5 Critical | Locally tested only; externally unverified | Separate restricted migration/runtime grant profiles and negative tests pass on disposable MariaDB; actual provider grants, PUBLIC/roles and trigger definers remain unverified. | DBA/provider: effective grant evidence, stable definer account/rights and full runtime staging tests. See database-privilege-matrix.md; no assumption of Hostinger support. |
 | H1 High ? remediated locally in Task 15 | Locally tested only | Captured legacy index/PRIMARY lock inversion: errno 1213, ER_LOCK_DEADLOCK, SQLSTATE 40001. Shared unique platform_slot point lookup and identical id/status projection remove conflicting scan paths; no new retry. | Three consecutive counter-checked stress runs and all 174 distinct tests pass. See feedback-concurrency-report.md. Provider validation/capacity remain unverified; other blockers stay open. |
-| H2 High | Runtime transport not implemented; migration transport locally implemented | Application pool.ts still has no verified-CA TLS configuration. Task 17 operator transport pins CA bytes and verifies chain/hostname, but this does not secure remote application connections or prove provider TLS compatibility. | Backend/DB owner: prove approved private topology or implement/test verified runtime TLS; independently validate provider migration TLS. Never disable certificate verification. |
+| H2 High | Implemented and locally tested; owner action required | Task 19 runtime verified CA/hostname TLS is implemented; production refuses disabled TLS. Actual MariaDB 11.8.9 handshake, wrong CA and hostname rejection pass locally. Migration TLS remains separately configured. | DB/operations owner must establish provider CA, DNS certificate identity, cipher, effective runtime grants and staging evidence; never disable verification. |
 | H3 High | Externally unverified | SMTP/inbox, DNS/HTTPS, exact CORS/origins, provider runtime/native Argon2, shutdown/restarts and current patched Node 24 are unverified on the actual account. | Operations: separately authorized staging functional/negative evidence, not production trial-and-error. |
 | H4 High | Not implemented | Limits are process-local, trust proxy disabled, no shared edge enforcement; reverse-proxy NAT can throttle all clients together and restarts reset limits. Public view/event requests grow append-only audit storage. | Operations/security: trusted proxy specification, shared per-client/global limits, ingress/body/time/connection controls, retention/capacity evidence. Do not blindly trust X-Forwarded-For. |
 | H5 High | Not implemented | No durable mail outbox/retry, external alert pipeline, audit reconciliation/export, incident/on-call procedures or operational dashboards. Safe console errors omit actionable internal diagnosis. | Operations/backend: privacy-safe correlated events/metrics, SMTP failure queue/alerts, health/latency/DB/quota reconciliation alerts, tested incident routing. |
@@ -26,8 +45,8 @@ Severity is release impact, not a claim of an exploited vulnerability.
 | H7 High | Externally unverified | Retention/erasure, clinic-context sensitivity, backup encryption/access, public privacy notice/contact, jurisdiction and data-controller obligations lack acceptance evidence. Structured-only is data minimization, not legal certification. | Product/privacy/security: approved policies, notice, lawful-purpose/retention/access workflow and independent compliance review as applicable. |
 | H8 High | Locally tested structural controls; operational gate unverified | Task 17 operator workflow compares every applied prefix including columns, indexes, CHECK/FK definitions, trigger bodies/order/SQL mode and approved definers. Application readiness remains SELECT 1; data/hidden routines/provider drift are separate reviews. | Release/DB: use reviewed complete-manifest operator verification before opening traffic, plus provider object/grant/data inventory and staging rehearsal. A green preflight is not a DDL-success or application-readiness guarantee. |
 | H9 High | Not implemented | Secure one-time platform bootstrap and approved commercial catalog authoring/provisioning workflow are absent. Quotas require subscription/counters before first merchant admin acceptance; only seeded Super Admin manages subscriptions. | Product/release/security: controlled bootstrap/invite procedure, independently approved versioned terms/limits, staff capacity >= needed admins, onboarding dependency test. No sample/default commercial data. |
-| M1 Medium | Verified | Refresh credential in sessionStorage is XSS-readable; CSP connect-src permits all HTTPS and inline style. No unsafe HTML sink found, but script compromise could export credentials. | Frontend/security: tighten connect destinations, review content/CSP/dependencies; any cookie migration needs explicit CSRF/SameSite/CORS design. |
-| M2 Medium | Verified | Legacy DEPLOYMENT.md and minimal backend .env.example omit current APIs/auth/public origins/SMTP and contain stale no-API assertions. New checklist must take precedence. | Release/docs: consolidate canonical current instructions before operator handoff. |
+| M1 Medium | Partially implemented; locally tested | Task 19 production CSP restricts connect-src to self plus the build-approved API origin. Refresh tokens remain XSS-readable in sessionStorage; inline styles remain permitted. | Frontend/security owner: continued CSP/dependency review; cookie migration would require separately designed CSRF/SameSite/CORS controls. |
+| M2 Medium | Implemented; locally tested | Task 19 replaces obsolete DEPLOYMENT.md and expands safe examples, current environment reference and deployment runbook. | Release owner must validate actual protected configuration and provider topology; documentation is not deployment evidence. |
 | M3 Medium | Verified | Plans/history use per-row enrichment (N+1); several pickers show only a first page. History/search lacks full large-account UX. Gauge history contains observed net reconciliations, not precise lifecycle events. | Backend/frontend: query/pagination improvements measured against real volumes; keep history semantics explicit. |
 | M4 Medium | Not implemented | Session/token/limiter/audit retention cleanup, durable retry of unkeyed provisioning, automatic renewal and full denied-attempt security ledger absent. | Product/operations: scoped retention/idempotency policies; preserve link creation audit while retry keys depend on it. Do not add unauthorized billing automation. |
 | M5 Medium | Verified | Tests run Windows MariaDB ZIP/Chrome; Linux/provider native build/CI automation and broad accessibility/cross-browser verification absent. Two landing/demo lint warnings remain. | QA/release: reproducible protected CI and provider-like artifact build/smoke tests; address warnings separately. |
