@@ -42,7 +42,9 @@ export class DraftService {
       if(!subscription||!['active','trialing'].includes(subscription.status)||Number(subscription.period_elapsed)||Number(subscription.period_scheduled)||Number(subscription.period_ended))throw new HttpError(409,'AI subscription is unavailable')
       const terms=await approvedTerms(db,subscription.plan_id)
       if(!terms.features.aiDrafts||!terms.features.languages.includes(input.language))throw new HttpError(403,'AI language is not enabled by the approved plan')
-      return{prompt:{language:input.language,rating:input.rating,tags:input.tags,merchant:f.merchant_name,industry:f.channel_code,complex:input.complex} as DraftPrompt,subscriptionId:String(subscription.id)}
+      const presentation=(await select(db,'SELECT seed_keywords FROM merchant_presentation WHERE tenant_id=?',[f.tenant_id]))[0]
+      const seedKeywords=presentation?(typeof presentation.seed_keywords==='string'?JSON.parse(presentation.seed_keywords):presentation.seed_keywords):[]
+      return{prompt:{language:input.language,rating:input.rating,tags:input.tags,merchant:f.merchant_name,industry:f.channel_code,complex:input.complex,seedKeywords} as DraftPrompt,subscriptionId:String(subscription.id)}
     })
     if('cached'in context)return{draft:context.cached,language:input.language,editable:true,posted:false}
     // Token counting and generation are outside every database transaction.

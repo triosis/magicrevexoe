@@ -8,6 +8,7 @@ import type {SubscriptionService} from '../subscriptions/service.js'
 import {HttpError} from '../middleware/error-handler.js'
 import {approvedTerms,minor,overage} from './terms.js'
 import {RazorpayProvider,providerSubscription,payment} from './provider.js'
+import {requireFinancialApproval,financialReadiness} from './approval.js'
 
 const checkout=z.object({planId:z.string().regex(/^[1-9][0-9]{0,19}$/),requestKey:z.string().uuid()}).strict()
 const key=(value:string)=>Buffer.from(value.replaceAll('-',''),'hex')
@@ -20,7 +21,7 @@ export class BillingService{
   if(!((actor.member.kind==='platform'&&actor.member.roleCode==='super_admin')||(actor.member.tenantId===id&&actor.member.roleCode==='merchant_admin')))throw new HttpError(403,'Access denied')
   return account
  }
- async history(principal:Principal,id:string){return this.tenants.withActor(principal,async(db,actor)=>{await this.owner(db,actor,id);return{items:await select(db,'SELECT id,plan_id AS planId,status,last_period_end AS periodEnd,created_at AS createdAt FROM billing_agreements WHERE tenant_id=? ORDER BY id DESC LIMIT 50',[id])}},true)}
+ async history(principal:Principal,id:string){return this.tenants.withActor(principal,async(db,actor)=>{await this.owner(db,actor,id);return{financialReadiness,items:await select(db,'SELECT id,plan_id AS planId,status,last_period_end AS periodEnd,created_at AS createdAt FROM billing_agreements WHERE tenant_id=? ORDER BY id DESC LIMIT 50',[id])}},true)}
  async invoicePreparation(principal:Principal,id:string,agreementId:string){return this.tenants.withActor(principal,async(db,actor)=>{
   await this.owner(db,actor,id)
   const agreement=(await select(db,'SELECT a.id,a.plan_id,p.name,p.version,p.price,p.currency,p.interval_unit FROM billing_agreements a JOIN subscription_plans p ON p.id=a.plan_id WHERE a.tenant_id=? AND a.id=?',[id,agreementId]))[0]
@@ -64,6 +65,7 @@ export class BillingService{
   const input=parsed.data,provider=this.provider
   const reservation=await this.tenants.withActor(principal,async(db,actor)=>{
    await this.owner(db,actor,id)
+   requireFinancialApproval()
    const existing=(await select(db,'SELECT id,plan_id,status,checkout_url FROM billing_agreements WHERE tenant_id=? AND request_key=?',[id,key(input.requestKey)]))[0]
    if(existing){if(existing.plan_id!==input.planId)conflict('Checkout key conflicts');if(existing.status==='ready'&&existing.checkout_url)return{existing:true as const,url:String(existing.checkout_url)};return conflict('Checkout requires reconciliation; no payment request was repeated')}
    if((await select(db,"SELECT id FROM billing_agreements WHERE tenant_id=? AND status NOT IN ('canceled','completed') LIMIT 1",[id])).length)conflict('An existing billing agreement requires resolution')

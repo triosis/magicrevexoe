@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=1) AS satisfied FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME='protect_merchant_presentation_owner' AND EVENT_OBJECT_TABLE='merchant_presentation' AND ACTION_TIMING='BEFORE' AND EVENT_MANIPULATION='UPDATE'

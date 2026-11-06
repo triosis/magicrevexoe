@@ -1,0 +1,1 @@
+CREATE TRIGGER protect_merchant_presentation_owner BEFORE UPDATE ON merchant_presentation FOR EACH ROW BEGIN IF NOT (NEW.tenant_id<=>OLD.tenant_id) OR NOT (NEW.tenant_kind<=>OLD.tenant_kind) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Immutable presentation ownership'; END IF; END

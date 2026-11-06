@@ -2,6 +2,7 @@ import {approveSyntheticPlan} from '../backend/test/commercial-fixtures.mjs'
 import {CatalogService} from '../backend/dist/subscriptions/catalog.js'
 import {BillingService} from '../backend/dist/billing/service.js'
 import {DraftService} from '../backend/dist/ai/service.js'
+import {PNG} from '../backend/node_modules/pngjs/lib/png.js'
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {createServer as secureServer} from 'node:https'
@@ -79,7 +80,7 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
   await query("INSERT INTO users(public_id,email,email_key,display_name,password_hash,status,email_verified_at) VALUES (?,?,?,'Local verification admin',?,'active',UTC_TIMESTAMP(6))",[randomBytes(16),'super@example.invalid',Buffer.from('super@example.invalid'),await hashPassword(password)])
   const uid=(await query('SELECT id FROM users'))[0].id,role=(await query("SELECT id FROM roles WHERE code='super_admin'"))[0].id
   await query("INSERT INTO tenant_memberships(tenant_id,tenant_kind,user_id,role_id,status) VALUES (?,'platform',?,?,'active')",[root,uid,role])
-  await query("INSERT INTO subscription_plans(code,version,name,price,currency,interval_unit) VALUES ('e2e_fixture',1,'Synthetic verification plan',17.25,'INR','month')")
+  await query("INSERT INTO subscription_plans(code,version,name,price,currency,interval_unit) VALUES ('e2e_fixture',1,'Synthetic verification plan',0.00,'INR','month')")
   plan=(await query('SELECT id FROM subscription_plans'))[0].id
   for(const metric of ['branches','staff_seats','feedback_submissions','short_links','qr_assets'])await query('INSERT INTO plan_limits(plan_id,metric,limit_value) VALUES (?,?,?)',[plan,metric,metric==='feedback_submissions'?'20':'5'])
   await query("UPDATE subscription_plans SET status='published' WHERE id=?",[plan])
@@ -123,6 +124,15 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
    const dl=page.waitForEvent('download');await page.getByRole('button',{name:'Download SVG',exact:true}).click();const download=await dl;await download.saveAs(path.join(evidence,'qr.svg'))
    asset=(await request('GET',`/branches/${branch}/qr`,subActor)).body.qrAssets[0];const bytes=await readFile(path.join(evidence,'qr.svg'));assert.equal(createHash('sha256').update(bytes).digest('hex'),asset.sha256)
    await page.screenshot({path:path.join(evidence,'onboarding-desktop.png'),fullPage:true})
+  })
+  await checked('actual merchant keyword/logo upload and authorized print-ready PDF download',async()=>{
+   await page.getByLabel('Three to five business phrases, one per line (empty clears)').fill('service experience\nclean environment\nwaiting time')
+   await page.getByRole('button',{name:'Save business keywords',exact:true}).click();await expect(page.getByText('Business keywords saved.',{exact:true})).toBeVisible()
+   const png=PNG.sync.write(new PNG({width:2,height:2}))
+   await page.getByLabel('Static PNG logo, up to 512 × 512 pixels and 64 KiB').setInputFiles({name:'synthetic-logo.png',mimeType:'image/png',buffer:png})
+   const uploaded=page.waitForResponse(r=>r.url().includes('/presentation/logo?')&&r.request().method()==='POST');await page.getByRole('button',{name:'Upload business logo',exact:true}).click();assert.equal((await uploaded).status(),200);await expect(page.getByText('Business logo saved.',{exact:true})).toBeVisible()
+   const ready=(await request('GET',`/merchants/${merchant}/presentation`,subActor)).body;assert.equal(ready.seedKeywords.length,3)
+   const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download print-ready PDF',exact:true}).click();const download=await pending;await download.saveAs(path.join(evidence,'qr-print.pdf'));assert.equal((await readFile(path.join(evidence,'qr-print.pdf'))).subarray(0,8).toString(),'%PDF-1.4')
   })
   await checked('real printed short-link redirect, mobile parallel options, Google navigation and anonymous feedback',async()=>{
    await publicPage.setViewportSize({width:390,height:844});await publicPage.goto(link.publicUrl);await expect(publicPage).toHaveURL(web+'/r/'+link.code)
@@ -169,6 +179,12 @@ test('real React + Express + MariaDB 11.8.9 end-to-end',{timeout:240000},async t
    await query("INSERT INTO subscriptions(tenant_id,plan_id,status,starts_at,current_period_start,current_period_end) VALUES (?,?,'active','2020-01-01','2020-01-01','2020-02-01')",[resellerDirect,plan]);assert.equal((await request('GET',`/merchants/${resellerDirect}/subscription`,superActor)).body.subscription.effectiveStatus,'expired')
    const account=(await request('GET','/tenants/'+reseller,superActor)).body;assert.equal((await request('POST',`/tenants/${reseller}/suspend`,superActor,{lockVersion:account.lockVersion})).status,200);assert.equal((await request('GET',`/merchants/${merchant}/subscription`,merchantActor)).status,403);assert.equal((await request('GET',`/merchants/${merchant}/subscription`,superActor)).body.subscription.effectiveStatus,'suspended');assert.equal((await request('GET','/public/funnels/'+link.code)).status,404)
    const suspended=(await request('GET','/tenants/'+reseller,superActor)).body;assert.equal((await request('POST',`/tenants/${reseller}/reinstate`,superActor,{lockVersion:suspended.lockVersion})).status,200)
+  })
+  await checked('actual archived feedback history and scoped analytics remain consistent',async()=>{
+   page=merchantPage;await page.getByRole('link',{name:'Private feedback',exact:true}).first().click();await page.getByRole('button',{name:'View feedback '+feedbackId,exact:true}).click()
+   await page.getByLabel('Status transition and reason').selectOption('resolved|completed');await page.getByRole('button',{name:'Update feedback status',exact:true}).click();await expect(page.getByText('Status: resolved',{exact:true})).toBeVisible()
+   await page.getByLabel('Status transition and reason').selectOption('archived|completed');await page.getByRole('button',{name:'Update feedback status',exact:true}).click();await expect(page.getByText('Status: archived',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Update feedback status',exact:true})).toHaveCount(0)
+   const data=(await request('GET',`/feedback/analytics?merchantId=${merchant}`,merchantActor)).body;assert.equal(data.googlePosts,null);assert.equal(data.conversionToGooglePosts,null);const actual=(await query('SELECT COUNT(*) AS n FROM private_feedback WHERE tenant_id=?',[merchant]))[0].n;assert.equal(data.ratings.reduce((n,row)=>n+BigInt(row.count),0n).toString(),actual)
   })
   await checked('real disabled links and archived branch unavailability, audit evidence and browser logout',async()=>{
    assert.equal((await request('POST',`/branches/${branch}/archive`,merchantActor,{lockVersion:1})).status,409)

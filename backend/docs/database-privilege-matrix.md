@@ -1,5 +1,15 @@
 # Database privilege matrix - Task 17
 
+## Task 22 delta
+
+Current full manifest: 85 versions, 32 tables, 46 triggers. Runtime adds only
+SELECT/INSERT/UPDATE on merchant_presentation and SELECT/INSERT on feedback_archives.
+All other table grants stay unchanged; no DDL/DELETE/ledger/global privilege is
+added. Migration profile unchanged: the new statements use CREATE TABLE/TRIGGER,
+ALTER TABLE ADD COLUMN and metadata verification. New triggers retain immutable
+ownership/language/archive, and enforce resolved-only archival. Provider-effective
+grants/definers remain unverified. See task-22-api-changes.md and task-22-test-report.md.
+
 ## Task 21 additive privilege delta
 
 Current manifest: 77 migrations, 30 tables, 41 triggers. Historical Task 17 counts

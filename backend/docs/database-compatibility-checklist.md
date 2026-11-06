@@ -1,5 +1,15 @@
 # MagicReview AI — Hostinger database compatibility checklist
 
+## Task 22 additive implementation
+
+Versions 000077–000084 add merchant presentation, immutable resolved feedback
+archives and nullable immutable feedback language, with matching postconditions.
+Full schema: 85 versions, 32 tables, 46 triggers. Old 77 checksums/structural prefixes
+are preserved. Do not edit old migrations or weaken fixed channel-label CHECKs.
+Use existing target/approval/locking/postcondition/forward-recovery controls.
+See task-22-api-changes.md for exact changes and task-22-test-report.md for actual
+MariaDB evidence. No production migration or provider compatibility claim occurred.
+
 ## Task 21 additive schema
 
 Versions 000067–000076 add commercial approvals, merchant-owned billing agreements,

@@ -40,10 +40,10 @@ test('approved migration safety and least privilege on disposable MariaDB 11.8.9
    const [grants]=await fixture.admin.query("SELECT Db FROM mysql.db WHERE User='PUBLIC' AND Db LIKE 'test%'");for(const row of grants)await fixture.admin.query('REVOKE ALL PRIVILEGES ON '+quote(row.Db)+'.* FROM PUBLIC')
   })
   await t.test('fresh read-only preflight creates no tables/ledger or seed data; scoped migration account succeeds',async()=>{
-   complete=await database();const report=await pre(complete);assert.equal(report.initialized,false);assert.equal(report.pending.length,77)
+   complete=await database();const report=await pre(complete);assert.equal(report.initialized,false);assert.equal(report.pending.length,85)
    assert.equal((await query(complete.admin,'SHOW TABLES')).length,0)
-   const {result,events}=await apply(complete);assert.equal(result.applied.length,77);assert.equal(events.filter(e=>e.event==='step_applied').length,77)
-   assert.equal((await query(complete.admin,'SELECT COUNT(*) AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()'))[0].n,'41')
+   const {result,events}=await apply(complete);assert.equal(result.applied.length,85);assert.equal(events.filter(e=>e.event==='step_applied').length,85)
+   assert.equal((await query(complete.admin,'SELECT COUNT(*) AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()'))[0].n,'46')
    const before=await query(complete.admin,'SELECT * FROM schema_migrations ORDER BY version');assert.deepEqual((await pre(complete)).pending,[]);assert.deepEqual(await query(complete.admin,'SELECT * FROM schema_migrations ORDER BY version'),before)
   })
   await t.test('restricted runtime account has exact application DML, no ledger access, no DDL and no append-only UPDATE',async()=>{
@@ -68,7 +68,7 @@ test('approved migration safety and least privilege on disposable MariaDB 11.8.9
    const x=await database(),report=await pre(x);await query(x.admin,'CREATE TABLE unexpected_fixture(id INT) ENGINE=InnoDB');await assert.rejects(pre(x),/BASELINE_REVIEW/)
    const changed=structuredClone(manifest);changed.checksums[0]='00'.repeat(32);await assert.rejects(operatorMigrations(complete.migration,files,changed,complete.policy,'preflight'),/MANIFEST_MISMATCH/)
    await assert.rejects(operatorMigrations(complete.migration,files,manifest,complete.policy,'apply',{approval:report.approval,audit:async()=>{}}),/APPROVAL_MISMATCH/)
-   await query(complete.admin,"UPDATE schema_migrations SET checksum=? WHERE version='000076'",[Buffer.alloc(32)]);await assert.rejects(pre(complete),/CHECKSUM_MISMATCH/);await query(complete.admin,"UPDATE schema_migrations SET checksum=? WHERE version='000076'",[files.at(-1).checksum])
+   await query(complete.admin,"UPDATE schema_migrations SET checksum=? WHERE version='000084'",[Buffer.alloc(32)]);await assert.rejects(pre(complete),/CHECKSUM_MISMATCH/);await query(complete.admin,"UPDATE schema_migrations SET checksum=? WHERE version='000084'",[files.at(-1).checksum])
   })
   await t.test('unexpected column/index/trigger and missing index/table are detected against exact applied prefix',async()=>{
    const x=await database();await runMigrations(x.migration,files.slice(0,4),'up')
@@ -106,7 +106,7 @@ test('approved migration safety and least privilege on disposable MariaDB 11.8.9
    const report=await cli('preflight',['--report',approvalFile]);assert.equal(report.code,0);assert.deepEqual(JSON.parse(await readFile(approvalFile,'utf8')),JSON.parse(report.stdout));assert.equal((await query(x.admin,'SHOW TABLES')).length,0)
    assert.equal((await cli('preflight',['--report',approvalFile])).code,1)
    const result=await cli('apply',['--approval',approvalFile,'--audit',audit]);assert.equal(result.code,0,result.stderr)
-   const records=(await readFile(audit,'utf8')).trim().split('\n').map(line=>JSON.parse(line));assert.equal(records.filter(e=>e.event==='step_applied').length,77);assert.equal(records.at(-1).event,'execution_completed');assert.ok(records[0].approvalDigest)
+   const records=(await readFile(audit,'utf8')).trim().split('\n').map(line=>JSON.parse(line));assert.equal(records.filter(e=>e.event==='step_applied').length,85);assert.equal(records.at(-1).event,'execution_completed');assert.ok(records[0].approvalDigest)
    assert.equal((await cli('apply',['--approval',approvalFile,'--audit',audit])).code,1)
   })
   await t.test('postcondition failure remains durable and explicit forward repair preserves checksums/history',async()=>{
@@ -116,7 +116,7 @@ test('approved migration safety and least privilege on disposable MariaDB 11.8.9
    await query(x.admin,"UPDATE schema_migrations SET status='applied',last_verified_step=1 WHERE version=? AND checksum=? AND status='failed'",[step.version,step.checksum]);assert.equal((await runMigrations(x.migration,[files[0],step],'status')).pending.length,0);assert.ok(original)
   })
   await t.test('reference manifest matches the actual full schema and no production target was selected',async()=>{
-   const c=await complete.admin.getConnection();try{assert.equal(digest(await inspectSchema(c)),digest(manifest.prefixes['000076']))}finally{c.release()}
+   const c=await complete.admin.getConnection();try{assert.equal(digest(await inspectSchema(c)),digest(manifest.prefixes['000084']))}finally{c.release()}
   })
  }finally{for(const c of sessions)c.destroy();await new Promise(r=>setImmediate(r));for(const pool of pools)await pool.end();await fixture.close()}
 })

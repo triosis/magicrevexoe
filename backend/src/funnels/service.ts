@@ -8,6 +8,7 @@ import {HttpError} from '../middleware/error-handler.js'
 import {destinationInput} from '../business/validation.js'
 import {newShortCode,publicOrigin,shortCode} from './validation.js'
 import {renderQr} from './qr.js'
+import {renderQrPrint} from './print.js'
 import {quotas} from '../subscriptions/quota.js'
 
 type Format='svg'|'png'
@@ -121,8 +122,9 @@ export class FunnelService{
   },true)
   const rendered=await renderQr(value.url,value.format)
   if(!rendered.digest.equals(value.digest))conflict('QR regeneration required')
-  return rendered
+  return {...rendered,sourceUrl:value.url}
  }
+ async qrPrint(principal:Principal,id:string){const ready=await this.qrContent(principal,id);return renderQrPrint(ready.sourceUrl)}
  private async publicRecord(db:PoolConnection,code:string,write=false){
   if(!shortCode.safeParse(code).success)unavailable()
   // Shared root lock serializes these reads/events against existing manager writes.
@@ -140,8 +142,9 @@ export class FunnelService{
  async publicPage(code:string){if(!this.webOrigin)return undefined;return transaction(this.pool,async db=>{await this.publicRecord(db,code);return this.webOrigin+'/r/'+code})}
  async resolve(code:string){return transaction(this.pool,async db=>{
   const f=await this.publicRecord(db,code),copy=json(f.public_copy)
+  const presentation=(await select(db,'SELECT logo_png FROM merchant_presentation WHERE tenant_id=?',[f.tenant_id]))[0]
   await this.publicEvent(db,f,'funnel_viewed')
-  return{merchant:{name:f.merchant_name},branch:{name:f.branch_name,address:f.address,timezone:f.timezone},industryChannel:{code:f.channel_code,name:f.channel_name},channelVersion:{version:f.version,title:copy.title},funnel:{revision:f.revision,brandTitle:f.brand_title,accentHex:f.accent_hex,locale:f.locale},options:{googleReview:{label:'Leave a Google review',url:f.review_url,independent:true},privateFeedback:{label:'Share private feedback',independent:true,fields:[{name:'overallRating',type:'integer',minimum:1,maximum:5,required:true},...Object.entries(json(f.feedback_labels)).map(([key,label])=>({name:({service:'serviceRating',cleanliness:'cleanlinessRating',waiting_time:'waitingTimeRating'} as Record<string,string>)[key],label,type:'integer',minimum:1,maximum:5,required:false}))],submissionAvailable:true,submissionUrl:`/api/v1/public/funnels/${code}/feedback`,submissionToken:this.auth.feedbackTokens.issue(code,f.revision)}},feedbackPolicy:{structuredOnly:true,medicalDetailsAllowed:false}}
+  return{merchant:{name:f.merchant_name,logoDataUrl:presentation?.logo_png?'data:image/png;base64,'+presentation.logo_png.toString('base64'):null},branch:{name:f.branch_name,address:f.address,timezone:f.timezone},industryChannel:{code:f.channel_code,name:f.channel_name},channelVersion:{version:f.version,title:copy.title},funnel:{revision:f.revision,brandTitle:f.brand_title,accentHex:f.accent_hex,locale:f.locale},options:{googleReview:{label:'Leave a Google review',url:f.review_url,independent:true},privateFeedback:{label:'Share private feedback',independent:true,fields:[{name:'overallRating',type:'integer',minimum:1,maximum:5,required:true},...Object.entries(json(f.feedback_labels)).map(([key,label])=>({name:({service:'serviceRating',cleanliness:'cleanlinessRating',waiting_time:'waitingTimeRating'} as Record<string,string>)[key],label,type:'integer',minimum:1,maximum:5,required:false}))],submissionAvailable:true,submissionUrl:`/api/v1/public/funnels/${code}/feedback`,submissionToken:this.auth.feedbackTokens.issue(code,f.revision)}},feedbackPolicy:{structuredOnly:true,medicalDetailsAllowed:false}}
  })}
  async event(code:string,event:'google_option_selected'|'private_feedback_option_selected'){return transaction(this.pool,async db=>{const f=await this.publicRecord(db,code);await this.publicEvent(db,f,event);return{recorded:true}})}
 }

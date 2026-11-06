@@ -20,6 +20,8 @@ import type {DraftService} from './ai/service.js'
 import {draftRoutes} from './ai/routes.js'
 import type {BillingService} from './billing/service.js'
 import {billingRoutes} from './billing/routes.js'
+import {PresentationService} from './business/presentation.js'
+import {presentationRoutes} from './business/presentation-routes.js'
 
 type Dependencies = {
   env: Env
@@ -83,6 +85,7 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, b
     if(!Buffer.isBuffer(req.body))throw new HttpError(400,'Raw JSON payment event required')
     res.json(await billing.webhook(req.body,req.get('x-razorpay-signature')??'',req.get('x-razorpay-event-id')??''))
   })
+  app.use('/api/v1',presentationRoutes(auth,tenants?new PresentationService(tenants):undefined))
   app.use(express.json({ limit: '16kb' }))
   app.use('/api/v1',billingRoutes(auth,billing))
   app.use('/api/v1/auth',authRoutes(auth))

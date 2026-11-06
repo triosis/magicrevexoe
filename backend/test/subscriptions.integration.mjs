@@ -53,6 +53,11 @@ test('subscription and usage APIs on disposable MariaDB 11.8.9',{timeout:120000}
    assert.equal((await request('GET',`/merchants/${merchant}/usage`)).body.availability,'no_subscription')
   })
   await t.test('assignment initializes exact resource snapshots and all five counters atomically',async()=>{
+   await assert.rejects(subscriptions.assign(actors.super.principal,merchant,{planId:plan,status:'active',periodEnd:new Date(end())}),e=>e.status===409)
+   // Keep all original resource/lifecycle assertions using an explicit test-only free plan.
+   plan=await insert('subscription_plans',{code:'fixture_free',version:1,name:'Synthetic free plan',price:'0.00',currency:'INR',interval_unit:'month'})
+   for(const [metric,limit]of Object.entries(limitValues))await insert('plan_limits',{plan_id:plan,metric,limit_value:limit})
+   await query("UPDATE subscription_plans SET status='published' WHERE id=?",[plan])
    const r=await request('POST',`/merchants/${merchant}/subscriptions`,'super',{planId:plan,periodEnd:end()});assert.equal(r.status,201);assigned=r.body
    assert.equal(assigned.merchantId,merchant);assert.equal(assigned.status,'active')
    const counters=await query('SELECT metric,used FROM usage_counters WHERE subscription_id=?',[assigned.id]);assert.equal(counters.length,5);assert.equal(counters.find(c=>c.metric==='branches').used,'1');assert.equal(counters.find(c=>c.metric==='staff_seats').used,'2');assert.equal(counters.find(c=>c.metric==='feedback_submissions').used,'0')

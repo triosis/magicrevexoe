@@ -4,6 +4,19 @@ import {expect,it,vi} from 'vitest'
 import {PublicPage,validPublicFunnel} from '../../src/application/public'
 import {funnel,code,json} from './fixtures'
 import {publicText} from '../../src/application/languages'
+import {rememberDestination,forgetDestination} from '../../src/application/offline-cache'
+it('uses a bounded verified destination only for transient unavailability',async()=>{
+ rememberDestination(code,funnel.options.googleReview.url);vi.stubGlobal('fetch',vi.fn(async()=>{throw Error('network unavailable')}));render(<PublicPage code={code}/>);expect(await screen.findByRole('link',{name:'Open cached Google review link'})).toHaveAttribute('href',funnel.options.googleReview.url);expect(screen.queryByRole('button',{name:'Send private feedback'})).not.toBeInTheDocument();forgetDestination(code)
+})
+it('removes a cached destination when the server explicitly disables the link',async()=>{
+ rememberDestination(code,funnel.options.googleReview.url);vi.stubGlobal('fetch',vi.fn(async()=>json({error:'Unavailable'},404)));render(<PublicPage code={code}/>);await screen.findByRole('alert');expect(screen.queryByRole('link',{name:'Open cached Google review link'})).not.toBeInTheDocument();expect(sessionStorage.getItem('magicreview.public.destination.'+code)).toBeNull()
+})
+it('star entry preserves both choices and cannot alter a failed submission awaiting duplicate-safe retry',async()=>{
+ let attempts=0;const payloads:string[]=[]
+ vi.stubGlobal('fetch',vi.fn(async(url,options)=>{if(String(url).endsWith('/feedback')){payloads.push(String(options?.body));if(++attempts===1)throw Error('network');return json({accepted:true,confirmationId:'same'})}return json(funnel)}))
+ render(<PublicPage code={code}/>);await screen.findByRole('link',{name:/Leave a Google review/});const user=userEvent.setup();for(const rating of [5,4,3,2,1]){await user.click(screen.getByRole('button',{name:rating+' out of 5',exact:true}));expect(screen.getByRole('link',{name:/Leave a Google review/})).toBeVisible();expect(screen.getByRole('button',{name:'Share private feedback',exact:true})).toBeVisible()}
+ await user.click(screen.getByRole('button',{name:'Share private feedback',exact:true}));expect(screen.getByLabelText('Overall service experience')).toHaveValue('1');await user.click(screen.getByRole('button',{name:'Send private feedback'}));await screen.findByRole('alert');await user.click(screen.getByRole('button',{name:'5 out of 5',exact:true}));expect(screen.getByLabelText('Overall service experience')).toHaveValue('1');await user.click(screen.getByRole('button',{name:'Retry same submission'}));await screen.findByText(/Confirmation:/);expect(payloads[0]).toBe(payloads[1])
+})
 it('keeps both paths and structured clinic questions in Hindi and Malayalam',async()=>{
  vi.stubGlobal('fetch',vi.fn(async()=>json(funnel)))
  render(<PublicPage code={code}/>);await screen.findByRole('link',{name:/Google/});const user=userEvent.setup()
@@ -20,7 +33,7 @@ it('renders independent Google/private options, submits structured clinic rating
  render(<PublicPage code={code}/>);const google=await screen.findByRole('link',{name:/Leave a Google review/});expect(google).toHaveAttribute('href',funnel.options.googleReview.url)
  const user=userEvent.setup();await user.click(screen.getByRole('button',{name:'Share private feedback'}));expect(screen.queryByRole('textbox')).not.toBeInTheDocument();expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
  await user.selectOptions(screen.getByLabelText('Overall service experience'),'1');await user.click(screen.getByRole('button',{name:'Send private feedback'}));expect(await screen.findByText(/Thank you. Your feedback was received/)).toBeInTheDocument();expect(google).toBeVisible()
- const sent=requests.find(r=>r.path.endsWith('/feedback'))!;expect(sent.body).toEqual({submissionToken:'signed-form-token',overallRating:1});expect(sent.body).not.toHaveProperty('merchantId')
+ const sent=requests.find(r=>r.path.endsWith('/feedback'))!;expect(sent.body).toEqual({submissionToken:'signed-form-token',overallRating:1,language:'en'});expect(sent.body).not.toHaveProperty('merchantId')
 })
 it('retries the identical payload on network failure and never hides Google',async()=>{
  let submissions=0;const payloads:string[]=[]

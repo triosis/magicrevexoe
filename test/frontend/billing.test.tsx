@@ -11,6 +11,6 @@ it('prepares invoice readiness without displaying a numbered invoice or initiati
   if(path.startsWith('/subscription-plans'))return{plans:[]}
   throw Error('Unexpected request')
  })
- render(<BillingPanel merchantId="10"/>);await screen.findByText(/Agreement 7: unknown/)
+ render(<BillingPanel merchantId="10"/>);await screen.findByText(/Agreement 7: unknown/);expect(screen.queryByRole('button',{name:'Prepare secure checkout'})).not.toBeInTheDocument();expect(screen.getByText(/Paid activation and checkout are disabled/)).toBeVisible()
  const user=userEvent.setup();await user.click(screen.getByText('Invoice preparation'));await user.click(screen.getByRole('button',{name:'Check invoice readiness'}));expect(await screen.findByText(/No financial document has been issued/)).toBeVisible();expect(calls.mock.calls.every(([,method])=>method===undefined||method==='GET')).toBe(true);expect(screen.queryByText(/Invoice number:/)).not.toBeInTheDocument()
 })

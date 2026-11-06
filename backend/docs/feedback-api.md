@@ -1,5 +1,16 @@
 # Private feedback API v1
 
+## Task 22 extension and restrictions
+
+See [Task 22 API/security changes](task-22-api-changes.md) for financial hold,
+merchant PNG/keyword configuration, actual scoped analytics, feedback language and
+immutable resolved-to-archived workflow, finite-capacity warnings, bounded cached
+fallback and authorized QR PDF. No existing constraint, root-lock ordering, MFA,
+strict clinical input or tenant scope is relaxed. Current testing and manual
+acceptance limits are in task-22-test-report.md and task-22-remaining-gaps.md.
+No paid execution, legal-policy acceptance, retention/deletion or new login policy
+may be inferred: the owner explicitly requires written decisions first.
+
 Task 15 update (2026-11-05): the identified root-lock inversion is corrected
 locally using one shared unique platform_slot lookup/projection, without automatic
 retries or schema changes. See [feedback-concurrency-report.md](feedback-concurrency-report.md)

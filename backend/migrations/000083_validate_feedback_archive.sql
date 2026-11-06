@@ -1,0 +1,1 @@
+CREATE TRIGGER validate_feedback_archive BEFORE INSERT ON feedback_archives FOR EACH ROW BEGIN IF NOT EXISTS (SELECT 1 FROM private_feedback WHERE tenant_id=NEW.tenant_id AND id=NEW.feedback_id AND status='resolved') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Only resolved feedback can be archived'; END IF; END

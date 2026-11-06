@@ -6,7 +6,8 @@ import {TenantService,type TenantActor,type Account,type Page} from '../tenants/
 import {HttpError} from '../middleware/error-handler.js'
 import {quotas} from './quota.js'
 import {approvedTerms} from '../billing/terms.js'
-import {metrics,periodKeys,periodState,dateKey,quota,transition,type Metric,type Assignment,type Status,type HistoryInput} from './model.js'
+import {requireFinancialApproval} from '../billing/approval.js'
+import {usageAlert,metrics,periodKeys,periodState,dateKey,quota,transition,type Metric,type Assignment,type Status,type HistoryInput} from './model.js'
 
 type Sub=RowDataPacket&{id:string;tenant_id:string;plan_id:string;status:Status;lock_version:number;period_start_key:string;period_end_key:string}
 type Plan=RowDataPacket&{id:string;code:string;version:number;name:string;price:string;currency:string;interval_unit:string;status:string}
@@ -68,7 +69,7 @@ export class SubscriptionService{
   const owner=await this.merchant(db,actor,id,true),now=await this.clock(db)
   if(!Number(owner.effective))conflict('Merchant account is suspended')
   const plan=await this.plan(db,input.planId,true);if(!plan.limitsComplete)conflict('Plan limits are not initialized')
-  if(BigInt(plan.price.replace('.',''))>0n)await approvedTerms(db,input.planId)
+  if(BigInt(plan.price.replace('.',''))>0n)requireFinancialApproval()
   const start=input.periodStart??now
   if(start>now||input.periodEnd<=now||input.periodEnd<=start)conflict('Assignment must cover the current server time')
   const previous=await this.latest(db,id)
@@ -85,9 +86,10 @@ export class SubscriptionService{
   await this.tenants.auditChange(db,actor,id,'subscription.assigned',{planId:input.planId},'subscription',sub.id)
   return this.dto(db,sub,owner,now)
  })}
- async initializeUsage(principal:Principal,id:string,subscriptionId:string){return this.tenants.withActor(principal,async(db,actor)=>{const owner=await this.merchant(db,actor,id,true),sub=await this.sub(db,id,subscriptionId);return this.initialize(db,actor,owner,sub,await this.clock(db))})}
+ async initializeUsage(principal:Principal,id:string,subscriptionId:string){return this.tenants.withActor(principal,async(db,actor)=>{const owner=await this.merchant(db,actor,id,true),sub=await this.sub(db,id,subscriptionId),plan=await this.plan(db,sub.plan_id);if(BigInt(plan.price.replace('.',''))>0n)requireFinancialApproval();return this.initialize(db,actor,owner,sub,await this.clock(db))})}
  // Backend-only boundary, called after verified provider binding under the root lock.
  async allocateVerifiedPayment(db:PoolConnection,merchant:string,planId:string,start:Date,end:Date){
+  requireFinancialApproval()
   const chain=await select(db,"WITH RECURSIVE chain AS (SELECT id,parent_id,status,kind,0 AS depth FROM tenants WHERE id=? UNION ALL SELECT t.id,t.parent_id,t.status,t.kind,c.depth+1 FROM tenants t JOIN chain c ON t.id=c.parent_id WHERE c.depth<3) SELECT * FROM chain ORDER BY depth",[merchant])
   if(chain[0]?.kind!=='merchant'||chain.at(-1)?.kind!=='platform'||chain.some(r=>r.status!=='active'))conflict('Paid allocation requires active merchant ancestry')
   const now=await this.clock(db);if(start>now||end<=now||end<=start)conflict('Paid period requires reconciliation')
@@ -109,7 +111,7 @@ export class SubscriptionService{
  async changeStatus(principal:Principal,id:string,subscriptionId:string,input:{status:Status;lockVersion:number}){return this.tenants.withActor(principal,async(db,actor)=>{
   const owner=await this.merchant(db,actor,id,true),sub=await this.sub(db,id,subscriptionId),now=await this.clock(db)
   if(sub.lock_version!==input.lockVersion||!transition(sub.status,input.status))conflict('Subscription version or status conflict')
-    if(allocated(input.status)){const plan=await this.plan(db,sub.plan_id);if(BigInt(plan.price.replace('.',''))>0n)await approvedTerms(db,sub.plan_id)}
+    if(allocated(input.status)){const plan=await this.plan(db,sub.plan_id);if(BigInt(plan.price.replace('.',''))>0n)requireFinancialApproval()}
   if(input.status==='expired'&&!Number(sub.period_elapsed))conflict('Subscription period has not ended; use cancellation')
   if(allocated(input.status)&&(!Number(owner.effective)||this.effective(sub,owner,now)==='expired'||this.effective(sub,owner,now)==='scheduled'))conflict('Subscription period or merchant is inactive')
   let canceledAt=dateKey(now);if(canceledAt>sub.period_end_key)canceledAt=sub.period_end_key;if(canceledAt<sub.starts_key)canceledAt=sub.starts_key
@@ -136,7 +138,7 @@ export class SubscriptionService{
      if(String(ledger.n)!==String(counter.used))availability='counter_inconsistent';else used=String(counter.used)
     }else used=await this.observed(db,id,metric,sub.period_start_key,sub.period_end_key)
    }
-   rows.push({metric,availability,initialized:!!counter,used,limit:limitRow?.limit??null,limitMode:!limitRow?'missing':limitRow.limit===null?'unlimited':'finite',...quota(availability==='available'?used:null,limitRow?.limit),source:metric==='feedback_submissions'?'period_ledger':'live_resources'})
+   rows.push({metric,availability,alertLevel:availability==='available'?usageAlert(used,limitRow?.limit):null,initialized:!!counter,used,limit:limitRow?.limit??null,limitMode:!limitRow?'missing':limitRow.limit===null?'unlimited':'finite',...quota(availability==='available'?used:null,limitRow?.limit),source:metric==='feedback_submissions'?'period_ledger':'live_resources'})
   }
   return{availability:rows.every(r=>r.availability==='available')?'available':'unavailable',subscription:await this.dto(db,sub,owner,now),metrics:rows}
  },true)}

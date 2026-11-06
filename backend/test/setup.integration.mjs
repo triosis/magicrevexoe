@@ -16,6 +16,9 @@ import {syntheticTerms} from './commercial-fixtures.mjs'
 import {FunnelService} from '../dist/funnels/service.js'
 import {DraftService} from '../dist/ai/service.js'
 import {ClaudeProvider} from '../dist/ai/provider.js'
+import {PresentationService} from '../dist/business/presentation.js'
+import {FeedbackService} from '../dist/feedback/service.js'
+import {PNG} from 'pngjs'
 
 test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{timeout:120000},async t=>{
  const fixture=await startDisposableMariaDB(),sessions=new Set()
@@ -67,6 +70,7 @@ test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{tim
    assert.equal((await catalog.list(principal)).plans.length,1)
   })
   const tenants=new TenantService(pool,auth),subscriptions=new SubscriptionService(tenants)
+  const presentations=new PresentationService(tenants),deniedActors=[]
   const insert=async(table,values)=>{const columns=Object.keys(values);return String((await query(`INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`,Object.values(values))).insertId)}
   const root=(await query("SELECT id FROM tenants WHERE kind='platform'"))[0].id,channel=(await query("SELECT id FROM industry_channels WHERE code='clinic_healthcare'"))[0].id
   const merchant=await insert('tenants',{public_id:randomBytes(16),kind:'merchant',parent_id:root,parent_kind:'platform',industry_channel_id:channel,name:'Synthetic clinic'})
@@ -76,6 +80,7 @@ test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{tim
     const roleId=(await query('SELECT id FROM roles WHERE code=?',[role]))[0].id
     const membership=await insert('tenant_memberships',{tenant_id:tenant,tenant_kind:'merchant',user_id:principal.identity.sub,role_id:roleId,status:'active'})
     const selected=await auth.selectTenant(principal,membership),actor=await auth.authenticate(selected.accessToken),service=new BillingService(pool,tenants,subscriptions)
+    deniedActors.push(actor)
     await assert.rejects(service.history(actor,merchant),e=>[403,404].includes(e.status))
     await assert.rejects(catalog.create(actor,{...terms,code:'forbidden'}),e=>e.status===403)
    }
@@ -99,20 +104,25 @@ test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{tim
    assert.equal((await catalog.approve(principal,paidPlan,{reference:'SYNTHETIC-ONLY',terms:syntheticTerms})).created,false)
    await assert.rejects(catalog.approve(principal,paidPlan,{reference:'CHANGED',terms:syntheticTerms}),e=>e.status===409)
   })
-  await t.test('concurrent checkout never creates a second remote subscription or local agreement',async()=>{
+  await t.test('even approved catalog and concurrent requests cannot enable financial execution',async()=>{
    const results=await Promise.allSettled(Array.from({length:4},()=>billing.checkout(principal,merchant,{planId:paidPlan,requestKey})))
-   assert.ok(results.some(r=>r.status==='fulfilled'));assert.equal(calls.filter(u=>u.endsWith('/subscriptions')).length,1)
-   assert.equal((await billing.checkout(principal,merchant,{planId:paidPlan,requestKey})).checkoutUrl,'https://rzp.io/synthetic')
-   assert.equal((await query('SELECT COUNT(*) AS n FROM billing_agreements'))[0].n,'1');assert.equal((await query('SELECT COUNT(*) AS n FROM subscriptions'))[0].n,'0')
+   assert.ok(results.every(r=>r.status==='rejected'&&r.reason.status===409));assert.equal(calls.length,0)
+   assert.equal((await query('SELECT COUNT(*) AS n FROM billing_agreements'))[0].n,'0');assert.equal((await query('SELECT COUNT(*) AS n FROM subscriptions'))[0].n,'0')
+   // Historical external agreement fixture: not created by a financial API.
+   await insert('billing_agreements',{tenant_id:merchant,plan_id:paidPlan,request_key:randomBytes(16),provider_id:'sub_synthetic',checkout_url:'https://rzp.io/synthetic',status:'ready'})
+   await assert.rejects(billing.checkout(principal,merchant,{planId:paidPlan,requestKey}),e=>e.status===409)
   })
-  await t.test('verified captured payment atomically allocates five counters; replay has one receipt and audit',async()=>{
+  await t.test('signed payment replay preserves one reconciliation receipt but cannot activate paid access',async()=>{
    const now=Math.floor(Date.now()/1000),body=Buffer.from(JSON.stringify({event:'subscription.charged',payload:{subscription:{entity:{id:'sub_synthetic',plan_id:'plan_synthetic',status:'active',current_start:now-60,current_end:now+86400}},payment:{entity:{id:'pay_synthetic',status:'captured',amount:100,currency:'INR',invoice_id:'inv_synthetic'}}}})),signature=createHmac('sha256',secret).update(body).digest('hex')
    await assert.rejects(billing.webhook(body,'invalid','evt_invalid'),e=>e.status===401)
-   const results=await Promise.all([billing.webhook(body,signature,'evt_synthetic'),billing.webhook(body,signature,'evt_synthetic')]);assert.equal(results.filter(r=>r.allocation).length,1)
-   assert.equal((await query('SELECT COUNT(*) AS n FROM subscriptions'))[0].n,'1');assert.equal((await query('SELECT COUNT(*) AS n FROM usage_counters'))[0].n,'5');assert.equal((await query('SELECT COUNT(*) AS n FROM billing_events'))[0].n,'1')
+   const results=await Promise.all([billing.webhook(body,signature,'evt_synthetic'),billing.webhook(body,signature,'evt_synthetic')]);assert.equal(results.filter(r=>r.allocation).length,0)
+   assert.equal((await query('SELECT COUNT(*) AS n FROM subscriptions'))[0].n,'0');assert.equal((await query('SELECT COUNT(*) AS n FROM usage_counters'))[0].n,'0');assert.equal((await query('SELECT COUNT(*) AS n FROM billing_events'))[0].n,'1')
    assert.equal((await query("SELECT COUNT(*) AS n FROM audit_logs WHERE action='billing.payment_received'"))[0].n,'1')
    await assert.rejects(query("UPDATE billing_events SET event_type='changed'"));await assert.rejects(query('UPDATE commercial_approvals SET approval_reference=?',['changed']))
   })
+  // Explicit zero-price synthetic allocation keeps AI/quota regressions independent of finance.
+  await catalog.approve(principal,plan,{reference:'SYNTHETIC-FREE',terms:syntheticTerms})
+  await subscriptions.assign(principal,merchant,{planId:plan,status:'active',periodEnd:new Date(Date.now()+86400000)})
   const branch=await insert('branches',{public_id:randomBytes(16),tenant_id:merchant,industry_channel_id:channel,code:'main',name:'Main',timezone:'UTC'})
   const version=await insert('channel_versions',{industry_channel_id:channel,version:1,status:'published',display_name:'Clinic',public_copy:JSON.stringify({title:'Visit',google_label:'Leave a Google review',private_label:'Share private feedback'}),feedback_labels:JSON.stringify({service:'Service experience',cleanliness:'Cleanliness',waiting_time:'Waiting time'}),published_at:new Date()})
   const destination=await insert('review_destinations',{tenant_id:merchant,branch_id:branch,place_id:'ChIJ_fixture',review_url:'https://search.google.com/local/writereview?placeid=ChIJ_fixture'})
@@ -151,6 +161,8 @@ test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{tim
   })
   await t.test('explicit cancellation stops renewal without erasing paid allocation or repeating a provider operation',async()=>{
    const agreement=(await query('SELECT id FROM billing_agreements'))[0].id
+   // A reconciled historical active agreement; no paid activation is performed.
+   await query("UPDATE billing_agreements SET status='active' WHERE id=?",[agreement])
    assert.equal((await billing.cancel(principal,merchant,agreement,{atCycleEnd:true})).renewalCanceled,true)
    assert.equal((await query('SELECT status FROM subscriptions WHERE tenant_id=?',[merchant]))[0].status,'active')
    await assert.rejects(billing.cancel(principal,merchant,agreement,{atCycleEnd:true}),e=>e.status===409)
@@ -162,6 +174,55 @@ test('operator bootstrap and approved catalog on disposable MariaDB 11.8.9',{tim
    const prepared=await billing.invoicePreparation(principal,merchant,agreement)
    assert.equal(prepared.issued,false);assert.equal(prepared.financialDocument,false);assert.equal(prepared.invoiceNumber,null);assert.equal(prepared.recipient,null);assert.equal(prepared.taxBreakdown,null);assert.equal(prepared.amountDue,null);assert.equal(prepared.settlement,'disabled');assert.equal(prepared.verifiedPaymentReceipts.length,1);assert.ok(prepared.missingApprovals.includes('written_finance_reviewed_billing_settlement_gst_policy'));assert.equal(calls.length,before)
    await assert.rejects(billing.invoicePreparation(principal,merchant,'999999'),e=>e.status===404)
+  })
+  await t.test('paid reactivation and internal allocation cannot bypass written policy with an approved catalog',async()=>{
+   const legacy=await insert('tenants',{public_id:randomBytes(16),kind:'merchant',parent_id:root,parent_kind:'platform',industry_channel_id:channel,name:'Legacy paid fixture'})
+   const sub=await insert('subscriptions',{tenant_id:legacy,plan_id:paidPlan,status:'trialing',starts_at:new Date(Date.now()-60000),current_period_start:new Date(Date.now()-60000),current_period_end:new Date(Date.now()+86400000)})
+   await assert.rejects(subscriptions.changeStatus(principal,legacy,sub,{status:'active',lockVersion:1}),e=>e.status===409)
+   await assert.rejects(subscriptions.initializeUsage(principal,legacy,sub),e=>e.status===409)
+   const db=await pool.getConnection();try{await assert.rejects(subscriptions.allocateVerifiedPayment(db,legacy,paidPlan,new Date(Date.now()-1000),new Date(Date.now()+86400000)),e=>e.status===409)}finally{db.release()}
+   assert.equal((await query('SELECT status FROM subscriptions WHERE id=?',[sub]))[0].status,'trialing')
+  })
+  await t.test('presentation is scoped, concurrent updates refuse lost writes, logo and keywords reach only their own public funnel',async()=>{
+   for(const actor of deniedActors)await assert.rejects(presentations.update(actor,merchant,{lockVersion:0,seedKeywords:[]}),e=>[403,404].includes(e.status))
+   const input={lockVersion:0,seedKeywords:['service experience','clean environment','waiting time']}
+   const results=await Promise.allSettled([presentations.update(principal,merchant,input),presentations.update(principal,merchant,input)]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1)
+   const logo=PNG.sync.write(new PNG({width:2,height:2}));await presentations.logo(principal,merchant,logo,1)
+   const page=await funnels.resolve(code);assert.equal(page.merchant.logoDataUrl,'data:image/png;base64,'+logo.toString('base64'));assert.equal(JSON.stringify(page).includes('seedKeywords'),false)
+   assert.equal((await presentations.get(principal,merchant)).lockVersion,2)
+   await assert.rejects(query('UPDATE merchant_presentation SET tenant_id=? WHERE tenant_id=?',[root,merchant]))
+  })
+  const feedback=new FeedbackService(tenants,auth,funnels)
+  await t.test('resolved feedback archives atomically without rewriting enum history; archived rows cannot reopen',async()=>{
+   await feedback.submit(code,{submissionToken:draftRequest.submissionToken,overallRating:2,language:'ml'})
+   const row=(await feedback.list(principal,{merchantId:merchant,limit:50})).feedback[0]
+   assert.equal(row.language,'ml');await assert.rejects(query('UPDATE private_feedback SET customer_language=? WHERE id=?',['en',row.id]))
+   await assert.rejects(query('INSERT INTO feedback_archives(tenant_id,feedback_id,actor_user_id) VALUES (?,?,?)',[merchant,row.id,principal.identity.sub]))
+   await feedback.changeStatus(principal,row.id,{status:'resolved',reasonCode:'completed',lockVersion:row.lockVersion})
+   const concurrent=await Promise.allSettled([feedback.changeStatus(principal,row.id,{status:'archived',reasonCode:'completed',lockVersion:2}),feedback.changeStatus(principal,row.id,{status:'archived',reasonCode:'completed',lockVersion:2})]);assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1)
+   const archived=await feedback.details(principal,row.id);assert.equal(archived.status,'archived');assert.equal(archived.history.at(-1).toStatus,'archived');assert.equal(archived.lockVersion,3)
+   await assert.rejects(feedback.changeStatus(principal,row.id,{status:'in_progress',reasonCode:'reopened',lockVersion:3}),e=>e.status===409)
+   assert.equal((await feedback.list(principal,{merchantId:merchant,status:'resolved',limit:50})).feedback.length,0)
+   assert.equal((await feedback.statistics(principal,{merchantId:merchant,status:'archived'})).groups[0].count,'1')
+  })
+  await t.test('analytics uses actual scoped UTC records and never fabricates Google conversion',async()=>{
+   const data=await feedback.analytics(principal,{merchantId:merchant});assert.equal(data.googlePosts,null);assert.equal(data.conversionToGooglePosts,null);assert.equal(data.ratings.find(r=>r.rating===2).count,'1');assert.equal(data.activity[0].status,'archived')
+   assert.ok(data.publicActivity.some(row=>row.event==='public.funnel_viewed'));assert.ok(data.publicActivity.every(row=>!Object.hasOwn(row,'actor_user_id')))
+   for(const actor of deniedActors.slice(1))await assert.rejects(feedback.analytics(actor,{merchantId:merchant}),e=>[403,404].includes(e.status))
+   await assert.rejects(feedback.analytics(principal,{from:new Date('2020-01-01'),to:new Date('2021-01-01')}),e=>e.status===400)
+  })
+  await t.test('archive audit failure rolls back archive and optimistic version together',async()=>{
+   await feedback.submit(code,{submissionToken:(await funnels.resolve(code)).options.privateFeedback.submissionToken.token,overallRating:4})
+   const row=(await feedback.list(principal,{merchantId:merchant,status:'new',limit:50})).feedback[0]
+   await feedback.changeStatus(principal,row.id,{status:'resolved',reasonCode:'completed',lockVersion:1})
+   await query("CREATE TRIGGER fixture_archive_audit_failure BEFORE INSERT ON audit_logs FOR EACH ROW BEGIN IF NEW.action='feedback.archived' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic audit failure'; END IF; END")
+   try{await assert.rejects(feedback.changeStatus(principal,row.id,{status:'archived',reasonCode:'completed',lockVersion:2}));assert.equal((await feedback.details(principal,row.id)).status,'resolved');assert.equal((await feedback.details(principal,row.id)).lockVersion,2);assert.equal((await query('SELECT COUNT(*) AS n FROM feedback_archives WHERE feedback_id=?',[row.id]))[0].n,'0')}finally{await query('DROP TRIGGER fixture_archive_audit_failure')}
+  })
+  await t.test('PDF QR export verifies live ownership and readiness before rendering',async()=>{
+   const link=(await query('SELECT id FROM short_links WHERE code=?',[code]))[0].id,asset=await funnels.generateQr(principal,branch,{shortLinkId:link,format:'svg',regenerate:false})
+   const content=await funnels.qrPrint(principal,asset.id);assert.equal(content.subarray(0,8).toString(),'%PDF-1.4');assert.match(content.toString(),/Google review or private feedback/)
+   for(const actor of deniedActors.slice(1))await assert.rejects(funnels.qrPrint(actor,asset.id),e=>[403,404].includes(e.status))
+   await query("UPDATE short_links SET status='disabled' WHERE id=?",[link]);await assert.rejects(funnels.qrPrint(principal,asset.id),e=>e.status===409)
   })
  }finally{for(const c of sessions)c.destroy();await pool.end();await fixture.close()}
 })

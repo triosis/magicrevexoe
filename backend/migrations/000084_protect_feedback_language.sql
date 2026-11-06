@@ -1,0 +1,1 @@
+CREATE TRIGGER protect_feedback_language BEFORE UPDATE ON private_feedback FOR EACH ROW BEGIN IF NOT (NEW.customer_language<=>OLD.customer_language) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Immutable feedback language'; END IF; END

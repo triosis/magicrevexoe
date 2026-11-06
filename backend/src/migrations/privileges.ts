@@ -3,6 +3,8 @@ import {MigrationError} from './runner.js'
 import {digest} from './schema.js'
 
 export const runtimePrivileges:Record<string,string[]>={
+ merchant_presentation:['SELECT','INSERT','UPDATE'],
+ feedback_archives:['SELECT','INSERT'],
  industry_channels:['SELECT','UPDATE'],users:['SELECT','INSERT','UPDATE'],tenants:['SELECT','INSERT','UPDATE'],
  roles:['SELECT'],permissions:['SELECT'],role_permissions:['SELECT'],tenant_memberships:['SELECT','INSERT','UPDATE'],
  auth_sessions:['SELECT','INSERT','UPDATE'],auth_tokens:['SELECT','INSERT','UPDATE'],channel_versions:['SELECT','INSERT','UPDATE'],

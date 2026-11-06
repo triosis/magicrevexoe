@@ -23,6 +23,7 @@ export function funnelRoutes(auth?:AuthService,service?:FunnelService){
  router.post('/short-links/:id/disable',...protectedRoute,async(req,res)=>{const input=parse(statusInput,req.body);res.json(await service!.disable(principalFrom(res.locals),parse(identifier,req.params.id),input.lockVersion))})
  router.post('/branches/:id/qr',...protectedRoute,async(req,res)=>{res.status(200).json(await service!.generateQr(principalFrom(res.locals),parse(identifier,req.params.id),parse(qrInput,req.body)))})
  router.get('/branches/:id/qr',...protectedRoute,async(req,res)=>{res.json(await service!.qrDetails(principalFrom(res.locals),parse(identifier,req.params.id),parse(page,req.query)))})
+ router.get('/qr-assets/:id/print.pdf',...protectedRoute,async(req,res)=>{parse(empty,req.query);res.type('application/pdf').attachment('review-qr.pdf').send(await service!.qrPrint(principalFrom(res.locals),parse(identifier,req.params.id)))})
  router.get('/qr-assets/:id/content',...protectedRoute,async(req,res)=>{const rendered=await service!.qrContent(principalFrom(res.locals),parse(identifier,req.params.id));res.set('Content-Type',rendered.contentType);res.set('Content-Disposition','attachment; filename="review-qr.'+(rendered.contentType==='image/png'?'png':'svg')+'"');res.send(rendered.content)})
  return router
 }

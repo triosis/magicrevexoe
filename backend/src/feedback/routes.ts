@@ -17,6 +17,7 @@ export function feedbackRoutes(auth?:AuthService,service?:FeedbackService){
  router.post('/public/funnels/:code/feedback',noStore,publicLimit,available,async(req,res)=>{parse(empty,req.query);res.status(200).json(await service!.submit(typeof req.params.code==='string'?req.params.code:'',parse(submission,req.body)))})
  router.use('/feedback',noStore,available,auth?auth.authentication():(_req,_res)=>{throw new HttpError(503,'Authentication unavailable')},activeMembership(),(req,res,next)=>{try{limiter.consume(`feedback-admin:${principalFrom(res.locals).identity.sub}`,req.method==='GET'?120:30)}catch(error){res.set('Retry-After','900');throw error}next()})
  router.get('/feedback/statistics',async(req,res)=>{res.json(await service!.statistics(principalFrom(res.locals),parse(filter,req.query)))})
+ router.get('/feedback/analytics',async(req,res)=>{res.json(await service!.analytics(principalFrom(res.locals),parse(filter,req.query)))})
  router.get('/feedback',async(req,res)=>{res.json(await service!.list(principalFrom(res.locals),parse(listInput,req.query)))})
  router.get('/feedback/:id',async(req,res)=>{parse(empty,req.query);res.json(await service!.details(principalFrom(res.locals),parse(identifier,req.params.id)))})
  router.patch('/feedback/:id/status',async(req,res)=>{parse(empty,req.query);res.json(await service!.changeStatus(principalFrom(res.locals),parse(identifier,req.params.id),parse(statusInput,req.body)))})

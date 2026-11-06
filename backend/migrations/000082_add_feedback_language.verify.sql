@@ -1,0 +1,1 @@
+SELECT (COUNT(*)=1) AS satisfied FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='private_feedback' AND COLUMN_NAME='customer_language' AND COLUMN_TYPE='enum(''en'',''hi'',''ml'')' AND IS_NULLABLE='YES'

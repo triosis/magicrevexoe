@@ -23,3 +23,8 @@ export function quota(used:string|null,limit:string|null|undefined){
  const difference=BigInt(limit)-BigInt(used)
  return{remaining:(difference>0n?difference:0n).toString(),overLimit:difference<0n}
 }
+export function usageAlert(used:string|null,limit:string|null|undefined){
+ if(used===null||limit===null||limit===undefined)return null
+ const actual=BigInt(used),capacity=BigInt(limit)
+ return actual>=capacity?'at_limit':actual*100n>=capacity*80n?'approaching_limit':null
+}
