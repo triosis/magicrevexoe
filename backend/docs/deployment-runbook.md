@@ -4,8 +4,8 @@ Unexecuted operator procedure, 2026-11-05. No Hostinger connection or deployment
 occurred. Release remains blocked by production-blockers.md. Obtain a named
 release operator, security/DB reviewers and separate approval before live actions.
 
-1. Freeze a reviewed commit, lockfiles, all 67 immutable migration pairs and schema
-   manifest. Build on the provider-equivalent OS using patched Node 24.x; verify
+1. Freeze a reviewed commit, lockfiles, all 85 ordered SQL versions (84 verification files plus
+   runner-verified bootstrap) and schema manifest. Build on the provider-equivalent OS using patched Node 24.x; verify
    native Argon2 installation. Run the full test commands in external-integration-report.md.
 2. Approve RPO/RTO, maintenance window and write freeze. Obtain a complete protected
    pre-change backup using separately reviewed provider facilities and restore it
@@ -76,3 +76,14 @@ destructive automatic schema rollback. For incomplete DDL use explicit forward
 repair from the migration runbook. For data disaster use the reviewed matching
 backup/key pair and full restore verification before routing. Never restore a
 compromised signing key to regain service. Do not proceed past missing owner evidence.
+
+## Current 503 and release evidence follow-up (2026-11-07)
+
+The latest owner-supplied logs name only DB_TLS_CA_FILE and DB_TLS_CA_SHA256; they
+still stop before listen. This is not permission to invent a CA or disable TLS.
+See [root cause](../../reports/HOSTINGER_503_ROOT_CAUSE.md),
+[exact deployment settings](../../reports/HOSTINGER_EXACT_DEPLOYMENT_SETTINGS.md),
+[environment checklist](../../reports/PRODUCTION_ENVIRONMENT_CHECKLIST.md) and
+[current blockers](../../reports/PRODUCTION_BLOCKERS.md).
+The read-only release fingerprint utility enables operator artifact comparison;
+no deployed commit/artifact match has been established by the supplied logs.
