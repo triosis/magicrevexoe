@@ -3,7 +3,7 @@ import {dirname,resolve} from 'node:path'
 import {randomUUID,createHash} from 'node:crypto'
 import {createPool} from 'mysql2/promise'
 import {loadMigrations,MigrationError} from './runner.js'
-import {targetPolicy,operatorMigrations,verifyTarget,type Approval} from './operator.js'
+import {targetPolicy,operatorMigrations,verifyTarget,operatorTransport,type Approval} from './operator.js'
 import {digest,type SchemaManifest} from './schema.js'
 import {verifyPrivileges} from './privileges.js'
 
@@ -15,6 +15,8 @@ async function main(){
  if(command!=='preflight'&&flags['--report'])throw new MigrationError('REPORT_ONLY_FOR_PREFLIGHT')
  if(!flags['--target']||!flags['--environment'])throw new MigrationError('EXPLICIT_TARGET_ENVIRONMENT_REQUIRED')
  const policy=targetPolicy.parse(JSON.parse(await readFile(flags['--target'],'utf8')))
+ const localTransportApproval={acknowledgement:process.env.HOSTINGER_LOCAL_APPROVAL,approvalId:process.env.HOSTINGER_LOCAL_APPROVAL_ID}
+ const transport=operatorTransport(policy,localTransportApproval)
  if(flags['--environment']!==policy.environment)throw new MigrationError('TARGET_ENVIRONMENT_MISMATCH')
  if(command==='apply'&&policy.environment==='production'&&flags['--confirm-production']!==`APPLY-PRODUCTION:${digest(policy)}`)throw new MigrationError('EXPLICIT_PRODUCTION_CONFIRMATION_REQUIRED')
  let approval:Approval|undefined
@@ -26,7 +28,7 @@ async function main(){
  }
  const user=process.env.MIGRATION_DB_USER,password=process.env.MIGRATION_DB_PASSWORD
  if(!user||!password)throw new MigrationError('EXPLICIT_MIGRATION_CREDENTIALS_REQUIRED')
- const ca=policy.tlsCaFile?await readFile(resolve(dirname(flags['--target']),policy.tlsCaFile),'utf8'):undefined
+ const ca=transport.mode==='required'&&policy.tlsCaFile?await readFile(resolve(dirname(flags['--target']),policy.tlsCaFile),'utf8'):undefined
  if(ca&&createHash('sha256').update(ca).digest('hex')!==policy.tlsCaSha256)throw new MigrationError('TLS_CA_FINGERPRINT_MISMATCH')
  const pool=createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:5000,charset:'utf8mb4',timezone:'Z',multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true,...(ca?{ssl:{ca,rejectUnauthorized:true,verifyIdentity:true,minVersion:'TLSv1.2'}}:{})})
  const audit=command==='apply'?await open(flags['--audit']!,'wx',0o600):undefined
@@ -37,10 +39,10 @@ async function main(){
  try{
   if(command==='check-runtime'){
    const connection=await pool.getConnection()
-   try{await verifyTarget(connection,policy);const result=await verifyPrivileges(connection,policy.database,'runtime');console.info(JSON.stringify({mode:command,targetFingerprint,privilegeFingerprint:result.fingerprint,verified:true}))}finally{connection.destroy()}
+   try{await verifyTarget(connection,policy,localTransportApproval);const result=await verifyPrivileges(connection,policy.database,'runtime');console.info(JSON.stringify({mode:command,targetFingerprint,privilegeFingerprint:result.fingerprint,verified:true,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,encrypted:false,approvalReference:transport.approvalId}:{})}))}finally{connection.destroy()}
   }else{
    const files=await loadMigrations(new URL('../../migrations/',import.meta.url)),manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')) as SchemaManifest
-   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted})
+   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted,localTransportApproval})
    if(audit)await event({event:'execution_completed',summary:result})
    else{
     if(flags['--report']){const report=await open(flags['--report'],'wx',0o600);try{await report.writeFile(JSON.stringify(result)+'\n');await report.sync()}finally{await report.close()}}

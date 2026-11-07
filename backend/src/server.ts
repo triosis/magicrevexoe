@@ -13,6 +13,7 @@ import {configuredClaude} from './ai/provider.js'
 import {DraftService} from './ai/service.js'
 import {BillingService} from './billing/service.js'
 import {configuredRazorpay} from './billing/provider.js'
+import {databaseTransport} from './config/database-transport.js'
 
 async function main() {
   const env = loadEnv()
@@ -29,6 +30,8 @@ async function main() {
   const drafts=funnels&&auth?new DraftService(funnels,auth,provider):undefined
   const paymentProvider=configuredRazorpay(process.env)
   const billing=tenants&&subscriptions?new BillingService(pool,tenants,subscriptions,paymentProvider):undefined
+  const transport=databaseTransport(env)
+  if(transport.mode==='HOSTINGER_LOCAL')console.warn(JSON.stringify({event:'database.transport',mode:transport.mode,encrypted:false,approvalReference:transport.approvalId,warning:'Explicit unencrypted loopback transport; no certificate peer identity is verified.'}))
   const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions,catalog,drafts,billing })
   const server = createServer(app)
   server.requestTimeout = 30_000

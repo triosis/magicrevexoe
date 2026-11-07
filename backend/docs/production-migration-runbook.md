@@ -1,3 +1,13 @@
+> **2026-11-07 update:** The HOSTINGER_LOCAL target-policy exception is implemented
+> and tested on a disposable local server. See the
+> [current transport handoff](../../reports/HOSTINGER_LOCAL_IMPLEMENTATION_REPORT.md).
+> It requires exact 127.0.0.1:3306, transport/reference fields, protected acknowledgement
+> and matching genuine approval reference, with no CA fields. This supersedes only
+> the unconditional production CA requirement below for that explicit exception.
+> Fresh preflight, independent production digest confirmation, audit, privilege,
+> lock, identity and schema controls still apply. Production activation/execution
+> is not authorized by repository implementation approval.
+
 # Production migration operator runbook - Task 17
 
 Prepared 2026-11-05; tested only on disposable MariaDB 11.8.9. This document is

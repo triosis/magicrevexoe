@@ -1,0 +1,10 @@
+{
+  "environment": "production",
+  "host": "127.0.0.1",
+  "port": 3306,
+  "database": "REPLACE_WITH_APPROVED_SCHEMA",
+  "serverHostname": "REPLACE_WITH_VERIFIED_SERVER_HOSTNAME",
+  "expectedAccount": "REPLACE_WITH_VERIFIED_ACCOUNT",
+  "transport": "HOSTINGER_LOCAL",
+  "hostingerLocalApprovalId": "REPLACE_WITH_REAL_APPROVAL_RECORD"
+}

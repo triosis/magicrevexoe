@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { z } from 'zod'
+import {databaseTransport} from './database-transport.js'
 
 // Resolve only the backend .env, regardless of the process working directory.
 // Host-provided environment variables retain priority over the local file.
@@ -26,7 +27,9 @@ const schema = z.object({
   DB_USER: required,
   DB_PASSWORD: required,
   DB_CONNECTION_LIMIT: integer(5, 50),
-  DB_TLS_MODE: z.enum(['disabled', 'required']).optional(),
+  DB_TLS_MODE: z.enum(['disabled', 'required', 'HOSTINGER_LOCAL']).optional(),
+  HOSTINGER_LOCAL_APPROVAL: z.string().optional(),
+  HOSTINGER_LOCAL_APPROVAL_ID: z.string().optional(),
   DB_TLS_CA_FILE: z.string().min(1).optional(),
   DB_TLS_CA_SHA256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
 })
@@ -42,6 +45,11 @@ export function loadEnv(): Env {
 }
 
 export function validateEnvironment(environment: NodeJS.ProcessEnv): Env {
+  // Check explicit canonical port before numeric coercion/defaulting can hide input.
+  if(environment.DB_TLS_MODE==='HOSTINGER_LOCAL'){
+    if(environment.DB_PORT!=='3306')throw Error('HOSTINGER_LOCAL requires explicit DB_PORT=3306')
+    databaseTransport(environment)
+  }
   const result = schema.safeParse(environment)
   if (!result.success) {
     // Never include input values: they may contain credentials.
@@ -56,7 +64,7 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv): Env {
     if (result.data.CORS_ORIGINS.some(origin => !origin.startsWith('https://')) || !result.data.CORS_ORIGINS.includes(environment.PUBLIC_WEB_ORIGIN ?? '')) fields.push('CORS_ORIGINS')
     if (environment.AUTH_RECOVERY_URL !== `${environment.PUBLIC_WEB_ORIGIN}/recover`) fields.push('AUTH_RECOVERY_URL')
     if (result.data.DB_TLS_MODE === 'disabled') fields.push('DB_TLS_MODE')
-    for (const name of ['DB_TLS_CA_FILE', 'DB_TLS_CA_SHA256', 'AUTH_ACCESS_SECRET', 'AUTH_MFA_KEY', 'AUTH_SMTP_HOST', 'AUTH_SMTP_PORT', 'AUTH_SMTP_USER', 'AUTH_SMTP_PASSWORD', 'AUTH_MAIL_FROM', 'AUTH_RECOVERY_URL']) {
+    for (const name of [...(result.data.DB_TLS_MODE==='HOSTINGER_LOCAL'?[]:['DB_TLS_CA_FILE','DB_TLS_CA_SHA256']), 'AUTH_ACCESS_SECRET', 'AUTH_MFA_KEY', 'AUTH_SMTP_HOST', 'AUTH_SMTP_PORT', 'AUTH_SMTP_USER', 'AUTH_SMTP_PASSWORD', 'AUTH_MAIL_FROM', 'AUTH_RECOVERY_URL']) {
       if (!environment[name] || environment[name]?.startsWith('REPLACE_WITH_')) fields.push(name)
     }
     if (result.data.DB_PASSWORD.length < 16 || new Set(result.data.DB_PASSWORD).size < 8) fields.push('DB_PASSWORD')
@@ -64,5 +72,6 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv): Env {
     if (smtpPassword.length < 16 || new Set(smtpPassword).size < 8) fields.push('AUTH_SMTP_PASSWORD')
     if (fields.length) throw Error(`Missing or invalid production environment variables: ${[...new Set(fields)].join(', ')}`)
   }
+  databaseTransport(result.data)
   return result.data
 }

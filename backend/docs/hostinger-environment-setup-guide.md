@@ -1,4 +1,13 @@
-﻿# Hostinger backend environment setup and startup diagnosis
+> **2026-11-07 update:** An explicit HOSTINGER_LOCAL exception is implemented and
+> tested locally, but is not authorized for production activation. See the current
+> [implementation/settings report](../../reports/HOSTINGER_LOCAL_IMPLEMENTATION_REPORT.md)
+> and [test evidence](../../reports/HOSTINGER_LOCAL_TEST_REPORT.md). In that mode only,
+> exact 127.0.0.1:3306 plus acknowledgement/genuine approval reference replaces the
+> CA requirement; both DB CA variables must be unset. All other production modes
+> retain verified TLS. The unconditional CA statements and measurements below are
+> the earlier TLS-mode investigation, not a claim about a new deployed build.
+
+# Hostinger backend environment setup and startup diagnosis
 
 2026-11-06. Source-based investigation of the owner-supplied production errors.
 No Hostinger connection, production setting/data/secret change, migration or real

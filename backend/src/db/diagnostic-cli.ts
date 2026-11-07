@@ -15,6 +15,6 @@ try{
 }catch(error){
  const code=typeof error==='object'&&error!==null&&'code'in error?error.code:undefined
  const diagnostic=code==='UNSUPPORTED_DATABASE_VERSION'?'Unsupported database: current release requires MariaDB 11.8.':code==='ENCRYPTED_DATABASE_SESSION_REQUIRED'?'Encrypted database session required.':safeDatabaseFailure(error)
- console.error(JSON.stringify({status:'failed',diagnostic,configuration:'Review production variable formats, approved CA and DNS identity; raw errors withheld'}))
+ console.error(JSON.stringify({status:'failed',diagnostic,configuration:'Review explicit transport approval, production variable formats and required CA/DNS policy; raw errors withheld'}))
  process.exitCode=1
 }

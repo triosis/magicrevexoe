@@ -21,8 +21,8 @@ test('proposal cannot infer approval from default, truthy or partial fields',()=
 test('proposal refuses mixed CA settings, including empty values',()=>{
  for(const key of ['DB_TLS_CA_FILE','DB_TLS_CA_SHA256'])for(const value of ['',null,'REPLACE_WITH_CA','a'.repeat(64)])assert.throws(()=>reviewHostingerLocalTransport({...candidate,[key]:value}))
 })
-test('live production validator and TLS pool still reject proposed mode even with all acknowledgements',()=>{
- const env={...candidate,CORS_ORIGINS:'https://web.example.invalid',DB_NAME:'synthetic',DB_USER:'synthetic',DB_PASSWORD:randomBytes(24).toString('hex')};assert.throws(()=>validateEnvironment(env),/DB_TLS_MODE/);assert.throws(()=>databaseTls(env),/DNS hostname/)
+test('implemented local transport still rejects incomplete production security configuration',()=>{
+ const env={...candidate,CORS_ORIGINS:'https://web.example.invalid',DB_NAME:'synthetic',DB_USER:'synthetic',DB_PASSWORD:randomBytes(24).toString('hex')};assert.throws(()=>validateEnvironment(env),/production environment variables/);assert.equal(databaseTls(env),undefined)
 })
 test('local acknowledgement cannot disable or supply a fallback for verified TLS',()=>{
  assert.throws(()=>databaseTls({...candidate,DB_TLS_MODE:'required'}),/DNS hostname/);

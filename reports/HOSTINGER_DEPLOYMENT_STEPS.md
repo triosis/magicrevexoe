@@ -1,3 +1,11 @@
+> **2026-11-07 implementation update:** HOSTINGER_LOCAL is now implemented in the
+> repository and tested against disposable local MariaDB. The review-only/unwired
+> statements below describe the earlier proposal snapshot. Current behavior, exact
+> settings and evidence: [implementation report](HOSTINGER_LOCAL_IMPLEMENTATION_REPORT.md)
+> and [test report](HOSTINGER_LOCAL_TEST_REPORT.md). Owner approval covers repository
+> implementation and local testing only. Hostinger activation, initialization and
+> deployment remain unauthorized and unverified; no production 503 fix is claimed.
+
 # Hostinger-only deployment and empty-schema initialization steps
 
 2026-11-07. **Review-only plan. No activation, deployment, production connection,

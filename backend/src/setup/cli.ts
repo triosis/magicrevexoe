@@ -1,7 +1,7 @@
 import {readFile} from 'node:fs/promises'
 import {dirname,resolve} from 'node:path'
 import {createDatabasePool} from '../db/pool.js'
-import {targetPolicy,verifyTarget} from '../migrations/operator.js'
+import {targetPolicy,verifyTarget,operatorTransport} from '../migrations/operator.js'
 import {digest} from '../migrations/schema.js'
 import {bootstrapPlatform} from './bootstrap.js'
 
@@ -12,12 +12,14 @@ try {
   for(let i=0;i<args.length;i+=2){const key=args[i],value=args[i+1];if(!key||!['--target','--environment','--approve'].includes(key)||!value||flags[key])throw Error();flags[key]=value}
   if(!flags['--target']||!flags['--environment'])throw Error()
   const policy=targetPolicy.parse(JSON.parse(await readFile(flags['--target'],'utf8')))
+  const localTransportApproval={acknowledgement:process.env.HOSTINGER_LOCAL_APPROVAL,approvalId:process.env.HOSTINGER_LOCAL_APPROVAL_ID}
+  const transport=operatorTransport(policy,localTransportApproval)
   if(policy.environment!==flags['--environment']||flags['--approve']!==`BOOTSTRAP:${digest(policy)}`)throw Error()
   const user=process.env.BOOTSTRAP_DB_USER,password=process.env.BOOTSTRAP_DB_PASSWORD
   if(!user||!password)throw Error()
   pool=createDatabasePool({NODE_ENV:policy.environment==='local'?'test':'production',HOST:'127.0.0.1',PORT:3001,CORS_ORIGINS:[],DB_HOST:policy.host,DB_PORT:policy.port,DB_NAME:policy.database,DB_USER:user,DB_PASSWORD:password,DB_CONNECTION_LIMIT:2,
-    DB_TLS_MODE:policy.environment==='local'?'disabled':'required',...(policy.tlsCaFile?{DB_TLS_CA_FILE:resolve(dirname(flags['--target']),policy.tlsCaFile),DB_TLS_CA_SHA256:policy.tlsCaSha256!}:{})})
-  const db=await pool.getConnection();try{await verifyTarget(db,policy)}finally{db.release()}
+    DB_TLS_MODE:transport.mode,HOSTINGER_LOCAL_APPROVAL:localTransportApproval.acknowledgement,HOSTINGER_LOCAL_APPROVAL_ID:localTransportApproval.approvalId,...(policy.tlsCaFile?{DB_TLS_CA_FILE:resolve(dirname(flags['--target']),policy.tlsCaFile),DB_TLS_CA_SHA256:policy.tlsCaSha256!}:{})})
+  const db=await pool.getConnection();try{await verifyTarget(db,policy,localTransportApproval)}finally{db.release()}
   const result=await bootstrapPlatform(pool,{platformName:process.env.BOOTSTRAP_PLATFORM_NAME,email:process.env.BOOTSTRAP_OWNER_EMAIL,displayName:process.env.BOOTSTRAP_OWNER_NAME,password:process.env.BOOTSTRAP_OWNER_PASSWORD})
   console.info(JSON.stringify(result))
 } catch {console.error('Bootstrap refused or failed. Review explicit target approval, protected inputs and database state. No credentials or identity details are logged.');process.exitCode=1}

@@ -9,13 +9,15 @@ import { createConnection } from 'mysql2/promise'
 
 // This harness launches its OWN Windows ZIP-distribution server. It never reads
 // .env, DB_* or remote database settings. No service install or destructive SQL.
-export async function startDisposableMariaDB(tls) {
+export async function startDisposableMariaDB(tls, {port: requestedPort} = {}) {
+  if(requestedPort!==undefined&&requestedPort!==3306)throw Error('Only explicit disposable loopback port 3306 is supported')
   const bin=process.env.MARIADB_TEST_BIN
   if (!bin || process.platform!=='win32') throw Error('MARIADB_TEST_BIN must point to local MariaDB 11.8 Windows bin directory')
   const datadir=await mkdtemp(path.join(tmpdir(),'magicreview-mariadb-'))
   const password=randomBytes(32).toString('hex')
   const reservation=net.createServer()
-  reservation.listen(0,'127.0.0.1')
+  // A busy explicit port fails at bind: never connect to an existing DB listener.
+  reservation.listen(requestedPort??0,'127.0.0.1')
   await once(reservation,'listening')
   const port=reservation.address().port
   await new Promise(resolve=>reservation.close(resolve))
