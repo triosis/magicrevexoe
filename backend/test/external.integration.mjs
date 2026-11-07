@@ -10,6 +10,7 @@ import { configuredSmtp } from '../dist/auth/smtp.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import {verifyDatabase} from '../dist/db/diagnostic.js'
 
 test('verified runtime database TLS on disposable MariaDB 11.8.9', { timeout: 120000 }, async t => {
   const cert = await certificate(), wrong = await certificate('other.invalid')
@@ -22,6 +23,24 @@ test('verified runtime database TLS on disposable MariaDB 11.8.9', { timeout: 12
       assert.match(version.v, /^11\.8\.9/)
       const [rows] = await p.query("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
       assert.ok(rows[0].Value)
+    })
+    await t.test('read-only diagnostic uses verified TLS and confirms the supported engine',async()=>{
+      const result=await verifyDatabase({...env,NODE_ENV:'production',DB_NAME:'information_schema'})
+      assert.deepEqual(result,{status:'verified',encrypted:true,engine:'MariaDB',series:'11.8',readOnlyProbe:true,schemaAndGrantsVerified:false})
+    })
+    await t.test('production diagnostic CLI validates full configuration and redacts failed credentials',async()=>{
+      const system=Object.fromEntries(Object.entries(process.env).filter(([key])=>['PATH','SYSTEMROOT','WINDIR','TEMP','TMP'].includes(key.toUpperCase())))
+      const {randomBytes}=await import('node:crypto')
+      const configuration={...system,...env,NODE_ENV:'production',DB_NAME:'information_schema',CORS_ORIGINS:'https://web.example.invalid',PUBLIC_WEB_ORIGIN:'https://web.example.invalid',PUBLIC_FUNNEL_ORIGIN:'https://api.example.invalid',AUTH_RECOVERY_URL:'https://web.example.invalid/recover',AUTH_ACCESS_SECRET:randomBytes(32).toString('base64'),AUTH_MFA_KEY:randomBytes(32).toString('base64'),AUTH_SMTP_HOST:'localhost',AUTH_SMTP_PORT:'465',AUTH_SMTP_USER:'synthetic',AUTH_SMTP_PASSWORD:randomBytes(24).toString('hex'),AUTH_MAIL_FROM:'sender@example.invalid'}
+      const options={cwd:fileURLToPath(new URL('..',import.meta.url)),env:Object.fromEntries(Object.entries(configuration).map(([k,v])=>[k,String(v)]))}
+      const execute=promisify(execFile)
+      const {stdout,stderr}=await execute(process.execPath,['dist/db/diagnostic-cli.js','--confirm-read-only'],options)
+      assert.equal(JSON.parse(stdout).status,'verified');assert.equal(stderr,'')
+      await assert.rejects(execute(process.execPath,['dist/db/diagnostic-cli.js','--confirm-read-only'],{...options,env:{...options.env,DB_PASSWORD:'synthetic-invalid-credential-9283'}}),error=>{
+        assert.equal(error.code,1);assert.equal(error.stdout,'');assert.equal(JSON.parse(error.stderr).status,'failed')
+        for(const value of [configuration.DB_PASSWORD,configuration.AUTH_ACCESS_SECRET,configuration.AUTH_MFA_KEY,'synthetic-invalid-credential-9283'])assert.ok(!error.stderr.includes(value))
+        return true
+      })
     })
     await t.test('untrusted certificate rejected', async () => {
       await assert.rejects(pool({ DB_TLS_CA_FILE: wrong.cert, DB_TLS_CA_SHA256: wrong.digest }).query('SELECT 1'))

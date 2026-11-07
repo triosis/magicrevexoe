@@ -50,6 +50,10 @@ const databaseFailures: Record<string, string> = {
   ETIMEDOUT: 'Database connection timed out; verify network access and database availability.',
   PROTOCOL_SEQUENCE_TIMEOUT: 'Database query timed out.',
   ER_CON_COUNT_ERROR: 'Database connection limit reached.',
+  ERR_TLS_CERT_ALTNAME_INVALID: 'Database certificate identity mismatch; verify DB_HOST against the provider certificate.',
+  CERT_HAS_EXPIRED: 'Database TLS certificate expired; request renewed provider trust material.',
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: 'Database TLS certificate chain could not be verified; review the approved CA bundle.',
+  SELF_SIGNED_CERT_IN_CHAIN: 'Database TLS chain is not trusted by the approved CA bundle.',
 }
 
 export function safeDatabaseFailure(error: unknown): string {
@@ -95,12 +99,15 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, b
   app.use('/api/v1',feedbackRoutes(auth,feedback))
   app.use('/api/v1',funnelRoutes(auth,funnels))
   app.use('/api/v1',businessRoutes(auth,business))
-  app.get('/health/live', (_request, response) => {
+  // Keep existing probe URLs; aliases accommodate operator probe conventions.
+  app.get(['/health/live', '/health'], (_request, response) => {
     response.set('Cache-Control', 'no-store').status(200).json({ status: 'alive' })
   })
-  app.get('/health/ready', async (_request, response) => {
+  app.get(['/health/ready', '/ready'], async (_request, response) => {
     response.set('Cache-Control', 'no-store')
-    if (isShuttingDown()) {
+    // The real entrypoint validates authentication before listen. Also fail closed
+    // if a production app is embedded with incomplete dependency construction.
+    if (isShuttingDown() || (env.NODE_ENV === 'production' && !auth)) {
       response.status(503).json({ status: 'not_ready', database: 'unchecked' })
       return
     }
