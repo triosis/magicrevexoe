@@ -1,0 +1,1137 @@
+{
+  "release": "000000-000084",
+  "triggers": [
+    {
+      "file": "000024_protect_tenants_owner.sql",
+      "trigger": "protect_tenants_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "tenants",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "tenants",
+      "definerSelectOn": [
+        "tenants"
+      ],
+      "oldColumns": [
+        "id",
+        "industry_channel_id",
+        "kind",
+        "parent_id",
+        "parent_kind",
+        "public_id"
+      ],
+      "newColumns": [
+        "id",
+        "industry_channel_id",
+        "kind",
+        "parent_id",
+        "parent_kind",
+        "public_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000025_protect_platform_root.sql",
+      "trigger": "protect_platform_root",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "tenants",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "tenants",
+      "definerSelectOn": [
+        "tenants"
+      ],
+      "oldColumns": [
+        "kind"
+      ],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000026_protect_tenant_memberships_owner.sql",
+      "trigger": "protect_tenant_memberships_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "tenant_memberships",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "tenant_memberships",
+      "definerSelectOn": [
+        "tenant_memberships"
+      ],
+      "oldColumns": [
+        "id",
+        "tenant_id",
+        "tenant_kind",
+        "user_id"
+      ],
+      "newColumns": [
+        "id",
+        "tenant_id",
+        "tenant_kind",
+        "user_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000027_protect_branches_owner.sql",
+      "trigger": "protect_branches_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "branches",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "branches",
+      "definerSelectOn": [
+        "branches"
+      ],
+      "oldColumns": [
+        "id",
+        "industry_channel_id",
+        "public_id",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "newColumns": [
+        "id",
+        "industry_channel_id",
+        "public_id",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000028_protect_review_destinations_owner.sql",
+      "trigger": "protect_review_destinations_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "review_destinations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "review_destinations",
+      "definerSelectOn": [
+        "review_destinations"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "id",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "branch_id",
+        "id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000029_protect_short_links_owner.sql",
+      "trigger": "protect_short_links_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "short_links",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "short_links",
+      "definerSelectOn": [
+        "short_links"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "code",
+        "id",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "branch_id",
+        "code",
+        "id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000030_protect_qr_assets_owner.sql",
+      "trigger": "protect_qr_assets_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "qr_assets",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "qr_assets",
+      "definerSelectOn": [
+        "qr_assets"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "format",
+        "id",
+        "object_key",
+        "short_link_id",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "branch_id",
+        "format",
+        "id",
+        "object_key",
+        "short_link_id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000031_protect_subscriptions_owner.sql",
+      "trigger": "protect_subscriptions_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "subscriptions",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscriptions",
+      "definerSelectOn": [
+        "subscriptions"
+      ],
+      "oldColumns": [
+        "id",
+        "plan_id",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "newColumns": [
+        "id",
+        "plan_id",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000032_protect_usage_counters_owner.sql",
+      "trigger": "protect_usage_counters_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "usage_counters",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "usage_counters",
+      "definerSelectOn": [
+        "usage_counters"
+      ],
+      "oldColumns": [
+        "metric",
+        "period_end",
+        "period_start",
+        "subscription_id",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "metric",
+        "period_end",
+        "period_start",
+        "subscription_id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000033_protect_private_feedback_owner.sql",
+      "trigger": "protect_private_feedback_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "private_feedback",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "private_feedback",
+      "definerSelectOn": [
+        "private_feedback"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "cleanliness_rating",
+        "funnel_configuration_id",
+        "id",
+        "industry_channel_id",
+        "overall_rating",
+        "public_id",
+        "service_rating",
+        "short_link_id",
+        "submission_key_hash",
+        "submitted_at",
+        "tenant_id",
+        "waiting_time_rating"
+      ],
+      "newColumns": [
+        "branch_id",
+        "cleanliness_rating",
+        "funnel_configuration_id",
+        "id",
+        "industry_channel_id",
+        "overall_rating",
+        "public_id",
+        "service_rating",
+        "short_link_id",
+        "submission_key_hash",
+        "submitted_at",
+        "tenant_id",
+        "waiting_time_rating"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000034_protect_channel_versions_published.sql",
+      "trigger": "protect_channel_versions_published",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "channel_versions",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "channel_versions",
+      "definerSelectOn": [
+        "channel_versions"
+      ],
+      "oldColumns": [
+        "created_at",
+        "display_name",
+        "feedback_labels",
+        "id",
+        "industry_channel_id",
+        "public_copy",
+        "published_at",
+        "status",
+        "version"
+      ],
+      "newColumns": [
+        "created_at",
+        "display_name",
+        "feedback_labels",
+        "id",
+        "industry_channel_id",
+        "public_copy",
+        "published_at",
+        "status",
+        "version"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000035_protect_channel_versions_delete.sql",
+      "trigger": "protect_channel_versions_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "channel_versions",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "channel_versions",
+      "definerSelectOn": [
+        "channel_versions"
+      ],
+      "oldColumns": [
+        "status"
+      ],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000036_protect_funnel_configurations_published.sql",
+      "trigger": "protect_funnel_configurations_published",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "funnel_configurations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "funnel_configurations",
+      "definerSelectOn": [
+        "funnel_configurations"
+      ],
+      "oldColumns": [
+        "accent_hex",
+        "branch_id",
+        "brand_title",
+        "channel_version_id",
+        "created_at",
+        "id",
+        "industry_channel_id",
+        "locale",
+        "published_at",
+        "review_destination_id",
+        "revision",
+        "status",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "accent_hex",
+        "branch_id",
+        "brand_title",
+        "channel_version_id",
+        "created_at",
+        "id",
+        "industry_channel_id",
+        "locale",
+        "published_at",
+        "review_destination_id",
+        "revision",
+        "status",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000037_protect_funnel_configurations_delete.sql",
+      "trigger": "protect_funnel_configurations_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "funnel_configurations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "funnel_configurations",
+      "definerSelectOn": [
+        "funnel_configurations"
+      ],
+      "oldColumns": [
+        "status"
+      ],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000038_protect_subscription_plans_published.sql",
+      "trigger": "protect_subscription_plans_published",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "subscription_plans",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscription_plans",
+      "definerSelectOn": [
+        "subscription_plans"
+      ],
+      "oldColumns": [
+        "code",
+        "created_at",
+        "currency",
+        "id",
+        "interval_unit",
+        "name",
+        "price",
+        "status",
+        "version"
+      ],
+      "newColumns": [
+        "code",
+        "created_at",
+        "currency",
+        "id",
+        "interval_unit",
+        "name",
+        "price",
+        "status",
+        "version"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000039_protect_subscription_plans_delete.sql",
+      "trigger": "protect_subscription_plans_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "subscription_plans",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscription_plans",
+      "definerSelectOn": [
+        "subscription_plans"
+      ],
+      "oldColumns": [
+        "status"
+      ],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000040_protect_funnel_configurations_owner.sql",
+      "trigger": "protect_funnel_configurations_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "funnel_configurations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "funnel_configurations",
+      "definerSelectOn": [
+        "funnel_configurations"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "id",
+        "industry_channel_id",
+        "revision",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "branch_id",
+        "id",
+        "industry_channel_id",
+        "revision",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000041_protect_channel_versions_owner.sql",
+      "trigger": "protect_channel_versions_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "channel_versions",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "channel_versions",
+      "definerSelectOn": [
+        "channel_versions"
+      ],
+      "oldColumns": [
+        "id",
+        "industry_channel_id",
+        "version"
+      ],
+      "newColumns": [
+        "id",
+        "industry_channel_id",
+        "version"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000042_protect_plan_limits_insert.sql",
+      "trigger": "protect_plan_limits_insert",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "plan_limits",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "plan_limits",
+      "definerSelectOn": [
+        "plan_limits",
+        "subscription_plans"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "plan_id"
+      ],
+      "bodyTableReads": [
+        "subscription_plans"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000043_protect_plan_limits_update.sql",
+      "trigger": "protect_plan_limits_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "plan_limits",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "plan_limits",
+      "definerSelectOn": [
+        "plan_limits",
+        "subscription_plans"
+      ],
+      "oldColumns": [
+        "metric",
+        "plan_id"
+      ],
+      "newColumns": [
+        "metric",
+        "plan_id"
+      ],
+      "bodyTableReads": [
+        "subscription_plans"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000044_protect_plan_limits_delete.sql",
+      "trigger": "protect_plan_limits_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "plan_limits",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "plan_limits",
+      "definerSelectOn": [
+        "plan_limits",
+        "subscription_plans"
+      ],
+      "oldColumns": [
+        "plan_id"
+      ],
+      "newColumns": [],
+      "bodyTableReads": [
+        "subscription_plans"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000045_append_only_audit_logs_update.sql",
+      "trigger": "append_only_audit_logs_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "audit_logs",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "audit_logs",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000046_append_only_audit_logs_delete.sql",
+      "trigger": "append_only_audit_logs_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "audit_logs",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "audit_logs",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000047_append_only_feedback_status_events_update.sql",
+      "trigger": "append_only_feedback_status_events_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "feedback_status_events",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "feedback_status_events",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000048_append_only_feedback_status_events_delete.sql",
+      "trigger": "append_only_feedback_status_events_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "feedback_status_events",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "feedback_status_events",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000049_append_only_usage_records_update.sql",
+      "trigger": "append_only_usage_records_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "usage_records",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "usage_records",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000050_append_only_usage_records_delete.sql",
+      "trigger": "append_only_usage_records_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "usage_records",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "usage_records",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000051_consume_auth_token_once.sql",
+      "trigger": "consume_auth_token_once",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "auth_tokens",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "auth_tokens",
+      "definerSelectOn": [
+        "auth_tokens"
+      ],
+      "oldColumns": [
+        "consumed_at",
+        "created_at",
+        "expires_at",
+        "id",
+        "purpose",
+        "tenant_id",
+        "token_hash",
+        "user_id"
+      ],
+      "newColumns": [
+        "consumed_at",
+        "created_at",
+        "expires_at",
+        "id",
+        "purpose",
+        "tenant_id",
+        "token_hash",
+        "user_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000052_validate_funnel_publish_insert.sql",
+      "trigger": "validate_funnel_publish_insert",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "funnel_configurations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "funnel_configurations",
+      "definerSelectOn": [
+        "branches",
+        "channel_versions",
+        "funnel_configurations",
+        "review_destinations"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "branch_id",
+        "channel_version_id",
+        "industry_channel_id",
+        "review_destination_id",
+        "status",
+        "tenant_id"
+      ],
+      "bodyTableReads": [
+        "branches",
+        "channel_versions",
+        "review_destinations"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000053_validate_short_link_insert.sql",
+      "trigger": "validate_short_link_insert",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "short_links",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "short_links",
+      "definerSelectOn": [
+        "funnel_configurations",
+        "short_links"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "branch_id",
+        "funnel_configuration_id",
+        "status",
+        "tenant_id"
+      ],
+      "bodyTableReads": [
+        "funnel_configurations"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000054_validate_funnel_publish_update.sql",
+      "trigger": "validate_funnel_publish_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "funnel_configurations",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "funnel_configurations",
+      "definerSelectOn": [
+        "branches",
+        "channel_versions",
+        "funnel_configurations",
+        "review_destinations"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "branch_id",
+        "channel_version_id",
+        "industry_channel_id",
+        "review_destination_id",
+        "status",
+        "tenant_id"
+      ],
+      "bodyTableReads": [
+        "branches",
+        "channel_versions",
+        "review_destinations"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000055_validate_short_link_update.sql",
+      "trigger": "validate_short_link_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "short_links",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "short_links",
+      "definerSelectOn": [
+        "funnel_configurations",
+        "short_links"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "branch_id",
+        "funnel_configuration_id",
+        "status",
+        "tenant_id"
+      ],
+      "bodyTableReads": [
+        "funnel_configurations"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000060_validate_plan_publish.sql",
+      "trigger": "validate_plan_publish",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "subscription_plans",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscription_plans",
+      "definerSelectOn": [
+        "plan_limits",
+        "subscription_plans"
+      ],
+      "oldColumns": [
+        "status"
+      ],
+      "newColumns": [
+        "id",
+        "status"
+      ],
+      "bodyTableReads": [
+        "plan_limits"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000061_require_draft_plan_insert.sql",
+      "trigger": "require_draft_plan_insert",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "subscription_plans",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscription_plans",
+      "definerSelectOn": [
+        "subscription_plans"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "status"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000062_validate_subscription_plan.sql",
+      "trigger": "validate_subscription_plan",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "subscriptions",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "subscriptions",
+      "definerSelectOn": [
+        "subscription_plans",
+        "subscriptions"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "plan_id"
+      ],
+      "bodyTableReads": [
+        "subscription_plans"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000071_immutable_commercial_approvals_update.sql",
+      "trigger": "immutable_commercial_approvals_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "commercial_approvals",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "commercial_approvals",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000072_immutable_commercial_approvals_delete.sql",
+      "trigger": "immutable_commercial_approvals_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "commercial_approvals",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "commercial_approvals",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000073_immutable_billing_events_update.sql",
+      "trigger": "immutable_billing_events_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "billing_events",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "billing_events",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000074_immutable_billing_events_delete.sql",
+      "trigger": "immutable_billing_events_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "billing_events",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "billing_events",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000075_protect_billing_agreements_owner.sql",
+      "trigger": "protect_billing_agreements_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "billing_agreements",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "billing_agreements",
+      "definerSelectOn": [
+        "billing_agreements"
+      ],
+      "oldColumns": [
+        "checkout_url",
+        "created_at",
+        "id",
+        "plan_id",
+        "provider_id",
+        "request_key",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "newColumns": [
+        "checkout_url",
+        "created_at",
+        "id",
+        "plan_id",
+        "provider_id",
+        "request_key",
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000076_protect_billable_usage_owner.sql",
+      "trigger": "protect_billable_usage_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "billable_usage",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "billable_usage",
+      "definerSelectOn": [
+        "billable_usage"
+      ],
+      "oldColumns": [
+        "branch_id",
+        "created_at",
+        "expires_at",
+        "form_digest",
+        "id",
+        "input_sha256",
+        "language",
+        "metric",
+        "request_key",
+        "reserved_tokens",
+        "short_link_id",
+        "status",
+        "subscription_id",
+        "tenant_id"
+      ],
+      "newColumns": [
+        "branch_id",
+        "created_at",
+        "expires_at",
+        "form_digest",
+        "id",
+        "input_sha256",
+        "language",
+        "metric",
+        "request_key",
+        "reserved_tokens",
+        "short_link_id",
+        "status",
+        "subscription_id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000078_protect_merchant_presentation_owner.sql",
+      "trigger": "protect_merchant_presentation_owner",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "merchant_presentation",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "merchant_presentation",
+      "definerSelectOn": [
+        "merchant_presentation"
+      ],
+      "oldColumns": [
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "newColumns": [
+        "tenant_id",
+        "tenant_kind"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000080_protect_feedback_archives_update.sql",
+      "trigger": "protect_feedback_archives_update",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "feedback_archives",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "feedback_archives",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    },
+    {
+      "file": "000081_protect_feedback_archives_delete.sql",
+      "trigger": "protect_feedback_archives_delete",
+      "timing": "BEFORE",
+      "event": "DELETE",
+      "subject": "feedback_archives",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "feedback_archives",
+      "definerSelectOn": [],
+      "oldColumns": [],
+      "newColumns": [],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "DELETE"
+    },
+    {
+      "file": "000083_validate_feedback_archive.sql",
+      "trigger": "validate_feedback_archive",
+      "timing": "BEFORE",
+      "event": "INSERT",
+      "subject": "feedback_archives",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "feedback_archives",
+      "definerSelectOn": [
+        "feedback_archives",
+        "private_feedback"
+      ],
+      "oldColumns": [],
+      "newColumns": [
+        "feedback_id",
+        "tenant_id"
+      ],
+      "bodyTableReads": [
+        "private_feedback"
+      ],
+      "bodyWrites": [],
+      "invokerPrivilege": "INSERT"
+    },
+    {
+      "file": "000084_protect_feedback_language.sql",
+      "trigger": "protect_feedback_language",
+      "timing": "BEFORE",
+      "event": "UPDATE",
+      "subject": "private_feedback",
+      "definer": "creating account; verified from information_schema at rehearsal",
+      "definerTriggerOn": "private_feedback",
+      "definerSelectOn": [
+        "private_feedback"
+      ],
+      "oldColumns": [
+        "customer_language"
+      ],
+      "newColumns": [
+        "customer_language"
+      ],
+      "bodyTableReads": [],
+      "bodyWrites": [],
+      "invokerPrivilege": "UPDATE"
+    }
+  ]
+}

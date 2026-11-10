@@ -17,7 +17,8 @@ export const bootstrapInput = z.object({
 
 // Operator-only entry point; never mounted as an unauthenticated HTTP route.
 // It cannot reset passwords, adopt an existing identity, or add a second root.
-export async function bootstrapPlatform(pool:Pool, raw:unknown) {
+export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:()=>void=()=>{}) {
+  authorize()
   const parsed=bootstrapInput.safeParse(raw)
   if(!parsed.success)throw new HttpError(400,'Invalid bootstrap input')
   const input=parsed.data, passwordHash=await hashPassword(input.password)
@@ -48,6 +49,7 @@ export async function bootstrapPlatform(pool:Pool, raw:unknown) {
     const role=(await select(db,"SELECT id FROM roles WHERE code='super_admin' AND tenant_kind='platform'"))[0]
     if(!role)throw new HttpError(409,'Bootstrap role unavailable')
     const platformId=randomBytes(16),userId=randomBytes(16)
+    authorize()
     await db.execute("INSERT INTO tenants(public_id,kind,name) VALUES (?,'platform',?)",[platformId,input.platformName])
     const tenant=(await select(db,'SELECT id FROM tenants WHERE public_id=?',[platformId]))[0]!
     // The separately authenticated operator attests the initial owner's identity.
@@ -57,6 +59,7 @@ export async function bootstrapPlatform(pool:Pool, raw:unknown) {
     await db.execute("INSERT INTO tenant_memberships(tenant_id,tenant_kind,user_id,role_id,status) VALUES (?,'platform',?,?,'active')",[tenant.id,user.id,role.id])
     const membership=(await select(db,'SELECT id FROM tenant_memberships WHERE tenant_id=? AND user_id=?',[tenant.id,user.id]))[0]!
     await db.execute("INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?,?,?,?,?,'platform.bootstrapped','tenant',?,?,'success','{}')",[randomBytes(16),tenant.id,user.id,tenant.id,membership.id,tenant.id,randomBytes(16)])
+    authorize()
     await db.commit()
     return {initialized:true,created:true}
   } catch(error) {await db.rollback().catch(()=>{});throw error}

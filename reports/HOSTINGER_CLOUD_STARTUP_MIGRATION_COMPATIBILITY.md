@@ -1,3 +1,12 @@
+> **2026-11-10 implementation update:** The separate default-denied Cloud Startup
+> profiles and disposable single-account/46-trigger/native-recovery rehearsal are
+> now implemented locally. See [current implementation and persistent risks](HOSTINGER_CLOUD_STARTUP_IMPLEMENTATION.md),
+> [test evidence](HOSTINGER_CLOUD_STARTUP_TEST_REPORT.md), and
+> [exact trigger dependency map](HOSTINGER_TRIGGER_PRIVILEGE_DEPENDENCIES.md).
+> Analysis-only/unimplemented statements below describe the earlier snapshot.
+> Production initialization remains NO-GO: genuine approvals, reduced Hostinger
+> grants/definers, actual recovery and release evidence are not established.
+
 # Hostinger Cloud Startup migration compatibility
 
 2026-11-10. Analysis only. No source, SQL, grants, credentials, deployed files or

@@ -1,3 +1,11 @@
+> **2026-11-10 Cloud Startup update:** The strict grant and separate-account path
+> below is incompatible with the confirmed single-user/database-wide-grant plan.
+> Separate default-denied compatibility profiles have been implemented and rehearsed
+> locally; see [current design, fields, recovery and approvals](HOSTINGER_CLOUD_STARTUP_IMPLEMENTATION.md)
+> and [tests](HOSTINGER_CLOUD_STARTUP_TEST_REPORT.md). Do not run the commands below
+> with ALL privileges expecting strict checks to pass. Production remains NO-GO;
+> the shared-account runtime requires explicit persistent risk acceptance.
+
 # Hostinger initial database migration and first owner
 
 2026-11-10. **For review, not execution authorization.** Target supplied by owner:

@@ -1,3 +1,10 @@
+> **2026-11-10:** Optional approval-bound initial-maintenance and runtime-dbwide
+> Cloud Startup profiles now exist in local source, separately from unchanged
+> strict profiles. Read the [current security/recovery report](../../reports/HOSTINGER_CLOUD_STARTUP_IMPLEMENTATION.md)
+> before considering them. Database-wide SELECT/INSERT/UPDATE/TRIGGER permanently
+> retains ledger/identity writes and trigger-management risk. This is not a silent
+> strict-profile downgrade or production authorization. Production remains NO-GO.
+
 > **2026-11-07 update:** The HOSTINGER_LOCAL target-policy exception is implemented
 > and tested on a disposable local server. See the
 > [current transport handoff](../../reports/HOSTINGER_LOCAL_IMPLEMENTATION_REPORT.md).

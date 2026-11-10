@@ -2,9 +2,10 @@ import {readFile,open} from 'node:fs/promises'
 import {dirname,resolve} from 'node:path'
 import {randomUUID,createHash} from 'node:crypto'
 import {createPool} from 'mysql2/promise'
-import {loadMigrations,MigrationError} from './runner.js'
+import {loadMigrations,MigrationError,validateHistory} from './runner.js'
 import {targetPolicy,operatorMigrations,verifyTarget,operatorTransport,type Approval} from './operator.js'
-import {digest,type SchemaManifest} from './schema.js'
+import {digest,verifySchema,validateManifest,type SchemaManifest} from './schema.js'
+import {checkCloudApproval,verifyCloudGrants,cloudRuntimeRisks} from './cloud-startup.js'
 import {verifyPrivileges} from './privileges.js'
 
 // No dotenv, app DB_* fallback, target defaults, raw SQL/grant diagnostics or retries.
@@ -15,6 +16,9 @@ async function main(){
  if(command!=='preflight'&&flags['--report'])throw new MigrationError('REPORT_ONLY_FOR_PREFLIGHT')
  if(!flags['--target']||!flags['--environment'])throw new MigrationError('EXPLICIT_TARGET_ENVIRONMENT_REQUIRED')
  const policy=targetPolicy.parse(JSON.parse(await readFile(flags['--target'],'utf8')))
+ const cloudApprovalId=process.env.CLOUD_STARTUP_PRIVILEGE_APPROVAL_ID
+ checkCloudApproval(policy,cloudApprovalId)
+ if(policy.cloudStartup&&((command==='check-runtime')!==(policy.cloudStartup.profile==='runtime-dbwide')))throw new MigrationError('CLOUD_STARTUP_COMMAND_PROFILE_MISMATCH')
  const localTransportApproval={acknowledgement:process.env.HOSTINGER_LOCAL_APPROVAL,approvalId:process.env.HOSTINGER_LOCAL_APPROVAL_ID}
  const transport=operatorTransport(policy,localTransportApproval)
  if(flags['--environment']!==policy.environment)throw new MigrationError('TARGET_ENVIRONMENT_MISMATCH')
@@ -39,10 +43,26 @@ async function main(){
  try{
   if(command==='check-runtime'){
    const connection=await pool.getConnection()
-   try{await verifyTarget(connection,policy,localTransportApproval);const result=await verifyPrivileges(connection,policy.database,'runtime');console.info(JSON.stringify({mode:command,targetFingerprint,privilegeFingerprint:result.fingerprint,verified:true,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,encrypted:false,approvalReference:transport.approvalId}:{})}))}finally{connection.destroy()}
+   try{
+    await verifyTarget(connection,policy,localTransportApproval)
+    const result=policy.cloudStartup?await verifyCloudGrants(connection,policy.database,policy.cloudStartup):await verifyPrivileges(connection,policy.database,'runtime')
+    if(policy.cloudStartup){
+     checkCloudApproval(policy,cloudApprovalId)
+     const files=await loadMigrations(new URL('../../migrations/',import.meta.url)),manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')) as SchemaManifest
+     if(digest(manifest)!==policy.cloudStartup.manifestFingerprint)throw new MigrationError('CLOUD_STARTUP_MANIFEST_MISMATCH')
+     validateManifest(manifest,files)
+     const [rows]=await connection.query<import('mysql2/promise').RowDataPacket[]>('SELECT version,name,checksum,status FROM schema_migrations ORDER BY version')
+     validateHistory(files,rows as Parameters<typeof validateHistory>[1]);if(rows.length!==files.length)throw new MigrationError('CLOUD_STARTUP_INCOMPLETE_SCHEMA')
+     await verifySchema(connection,manifest,files,files.length)
+     const [triggers]=await connection.query<import('mysql2/promise').RowDataPacket[]>('SELECT DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()')
+     if(triggers.some(t=>t.DEFINER!==policy.expectedAccount))throw new MigrationError('UNAPPROVED_TRIGGER_DEFINER')
+     checkCloudApproval(policy,cloudApprovalId)
+    }
+    console.info(JSON.stringify({mode:command,targetFingerprint,privilegeFingerprint:result.fingerprint,verified:true,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,encrypted:false,approvalReference:transport.approvalId}:{}),...(policy.cloudStartup?{cloudProfile:policy.cloudStartup.profile,cloudApprovalId:policy.cloudStartup.approvalId,retainedSchemaPrivileges:['SELECT','INSERT','UPDATE','TRIGGER'],risks:cloudRuntimeRisks}:{})}))
+   }finally{connection.destroy()}
   }else{
    const files=await loadMigrations(new URL('../../migrations/',import.meta.url)),manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')) as SchemaManifest
-   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted,localTransportApproval})
+   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted,localTransportApproval,...(cloudApprovalId?{cloudApprovalId}:{})})
    if(audit)await event({event:'execution_completed',summary:result})
    else{
     if(flags['--report']){const report=await open(flags['--report'],'wx',0o600);try{await report.writeFile(JSON.stringify(result)+'\n');await report.sync()}finally{await report.close()}}

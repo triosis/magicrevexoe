@@ -5,13 +5,16 @@ import {runMigrations,MigrationError,supportedVersion,type Migration} from './ru
 import {digest,validateManifest,verifySchema,type SchemaManifest} from './schema.js'
 import {verifyPrivileges} from './privileges.js'
 import {databaseTransport,validLocalApprovalId,type TransportSelection} from '../config/database-transport.js'
+import {cloudStartupPolicy,checkCloudApproval,verifyCloudGrants,cloudRuntimeRisks} from './cloud-startup.js'
 
 export const targetPolicy=z.object({
  environment:z.enum(['local','staging','production']),host:z.string().regex(/^[a-zA-Z0-9.:-]+$/),port:z.number().int().min(1).max(65535),
  database:z.string().regex(/^[a-zA-Z0-9_]{1,64}$/),serverHostname:z.string().min(1).max(255),expectedAccount:z.string().min(3).max(160),
  allowedTriggerDefiners:z.array(z.string().min(3).max(160)).default([]),tlsCaFile:z.string().min(1).optional(),tlsCaSha256:z.string().regex(/^[a-f0-9]{64}$/).optional(),
  transport:z.literal('HOSTINGER_LOCAL').optional(),hostingerLocalApprovalId:z.string().refine(validLocalApprovalId).optional(),
+ cloudStartup:cloudStartupPolicy.optional(),
 }).strict().superRefine((p,c)=>{
+ if(p.cloudStartup&&(p.environment!=='production'||p.transport!=='HOSTINGER_LOCAL'||p.host!=='127.0.0.1'||p.port!==3306))c.addIssue({code:'custom',message:'Cloud Startup requires explicit production loopback transport'})
  if(p.transport==='HOSTINGER_LOCAL'){
   if(p.environment!=='production'||p.host!=='127.0.0.1'||p.port!==3306||!p.hostingerLocalApprovalId||p.tlsCaFile!==undefined||p.tlsCaSha256!==undefined)c.addIssue({code:'custom',message:'Invalid explicitly approved Hostinger local target'})
   return
@@ -35,7 +38,7 @@ export function operatorTransport(policy:TargetPolicy,approval?:LocalTransportAp
  return databaseTransport({NODE_ENV:policy.environment==='local'?'test':'production',DB_HOST:policy.host,DB_PORT:policy.port,DB_TLS_MODE:policy.environment==='local'?'disabled':'required',DB_TLS_CA_FILE:policy.tlsCaFile,DB_TLS_CA_SHA256:policy.tlsCaSha256})
 }
 export type Approval={digest:string;expiresAt:number}
-export type AuditEvent={event:string;version?:string;code?:string;approvalDigest?:string;transport?:string;approvalReference?:string}
+export type AuditEvent={event:string;version?:string;code?:string;approvalDigest?:string;transport?:string;approvalReference?:string;cloudProfile?:string;cloudApprovalId?:string;expiresAt?:string}
 export async function verifyTarget(db:PoolConnection,policy:TargetPolicy,localApproval?:LocalTransportApproval){
  const transport=operatorTransport(policy,localApproval)
  if(transport.mode==='HOSTINGER_LOCAL'&&(db.connection.config.host!=='127.0.0.1'||db.connection.config.port!==3306))throw new MigrationError('UNEXPECTED_LOCAL_DATABASE_CONNECTION')
@@ -48,17 +51,28 @@ export async function verifyTarget(db:PoolConnection,policy:TargetPolicy,localAp
  }
  return digest({version:server.version,db:server.db,hostname:server.hostname,account:server.account})
 }
-export async function operatorMigrations(pool:Pool,files:Migration[],manifest:SchemaManifest,policy:TargetPolicy,mode:'preflight'|'apply',options:{approval?:Approval;productionConfirmation?:string;audit?:(event:AuditEvent)=>Promise<void>;interrupted?:()=>boolean;localTransportApproval?:LocalTransportApproval}={}){
+export async function operatorMigrations(pool:Pool,files:Migration[],manifest:SchemaManifest,policy:TargetPolicy,mode:'preflight'|'apply',options:{approval?:Approval;productionConfirmation?:string;audit?:(event:AuditEvent)=>Promise<void>;interrupted?:()=>boolean;localTransportApproval?:LocalTransportApproval;cloudApprovalId?:string}={}){
  if(!['preflight','apply'].includes(mode))throw new MigrationError('INVALID_OPERATOR_MODE')
  if(mode==='apply'&&policy.environment==='production'&&options.productionConfirmation!==`APPLY-PRODUCTION:${digest(policy)}`)throw new MigrationError('EXPLICIT_PRODUCTION_CONFIRMATION_REQUIRED')
  const transport=operatorTransport(policy,options.localTransportApproval)
+ checkCloudApproval(policy,options.cloudApprovalId)
+ if(policy.cloudStartup?.profile==='runtime-dbwide')throw new MigrationError('CLOUD_RUNTIME_PROFILE_CANNOT_MIGRATE')
  validateManifest(manifest,files)
+ if(policy.cloudStartup&&policy.cloudStartup.manifestFingerprint!==digest(manifest))throw new MigrationError('CLOUD_STARTUP_MANIFEST_MISMATCH')
  const expiresAt=mode==='preflight'?Date.now()+15*60_000:options.approval?.expiresAt??0
  if(mode==='apply'&&(!options.audit||!Number.isSafeInteger(expiresAt)||expiresAt<Date.now()||expiresAt>Date.now()+15*60_000))throw new MigrationError('EXPLICIT_RECENT_APPROVAL_REQUIRED')
  let identity='',grants='',approval:Approval|undefined
+ const boundary=()=>{checkCloudApproval(policy,options.cloudApprovalId);if(policy.cloudStartup&&mode==='apply'&&Date.now()>=expiresAt)throw new MigrationError('EXPLICIT_RECENT_APPROVAL_REQUIRED')}
  const result=await runMigrations(pool,files,mode==='preflight'?'status':'up',5,{
-  validateConnection:async db=>{identity=await verifyTarget(db,policy,options.localTransportApproval);grants=(await verifyPrivileges(db,policy.database,'migration')).fingerprint},
+  beforeStep:boundary,
+  validateConnection:async db=>{boundary();identity=await verifyTarget(db,policy,options.localTransportApproval);grants=(policy.cloudStartup?await verifyCloudGrants(db,policy.database,policy.cloudStartup):await verifyPrivileges(db,policy.database,'migration')).fingerprint},
   inspect:async(db,count)=>{
+   if(policy.cloudStartup&&!approval){
+    boundary()
+    if(count!==0)throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
+    const [objects]=await db.query<RowDataPacket[]>('SELECT (SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE())+(SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE())+(SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()) AS n')
+    if(Number(objects[0]?.n)!==0)throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
+   }
    const shape=await verifySchema(db,manifest,files,count)
    const [triggers]=await db.query<RowDataPacket[]>('SELECT DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()')
    if(triggers.some(t=>![policy.expectedAccount,...policy.allowedTriggerDefiners].includes(String(t.DEFINER))))throw new MigrationError('UNAPPROVED_TRIGGER_DEFINER')
@@ -66,12 +80,12 @@ export async function operatorMigrations(pool:Pool,files:Migration[],manifest:Sc
     approval={digest:digest({policy,identity,grants,shape,manifest:digest(manifest),count,expiresAt}),expiresAt}
     if(mode==='apply'){
      if(approval.digest!==options.approval?.digest)throw new MigrationError('PREFLIGHT_APPROVAL_MISMATCH')
-     await options.audit!({event:'approved_execution_started',approvalDigest:approval.digest,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,approvalReference:transport.approvalId}:{})})
+     await options.audit!({event:'approved_execution_started',approvalDigest:approval.digest,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,approvalReference:transport.approvalId}:{}),...(policy.cloudStartup?{cloudProfile:policy.cloudStartup.profile,cloudApprovalId:policy.cloudStartup.approvalId,expiresAt:policy.cloudStartup.expiresAt}:{})})
     }
    }
   },
-  progress:async event=>{await options.audit?.(event)},
+  progress:async event=>{if(event.event==='step_started')boundary();await options.audit?.(event)},
   interrupted:()=>options.interrupted?.()??false,
  })
- return {mode,targetFingerprint:digest(policy),manifestFingerprint:digest(manifest),approval,...result,dryRunGuarantee:false,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,encrypted:false,approvalReference:transport.approvalId}:{})}
+ return {mode,targetFingerprint:digest(policy),manifestFingerprint:digest(manifest),approval,...result,dryRunGuarantee:false,...(transport.mode==='HOSTINGER_LOCAL'?{transport:transport.mode,encrypted:false,approvalReference:transport.approvalId}:{}),...(policy.cloudStartup?{cloudProfile:policy.cloudStartup.profile,cloudApprovalId:policy.cloudStartup.approvalId,expiresAt:policy.cloudStartup.expiresAt,risks:cloudRuntimeRisks}:{})}
 }

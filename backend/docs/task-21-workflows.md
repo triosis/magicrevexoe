@@ -1,3 +1,10 @@
+> **2026-11-10:** Shared-account Cloud Startup bootstrap has a separate explicit
+> initial-maintenance policy/window/grant/manifest approval path in local source.
+> Existing default bootstrap behavior remains. See the
+> [current compatibility handoff](../../reports/HOSTINGER_CLOUD_STARTUP_IMPLEMENTATION.md).
+> One customer account cannot provide the strict identity separation described in
+> the historical workflow below. No production execution is authorized.
+
 # Task 21 operator and API workflows
 
 All HTTP paths below have prefix `/api/v1`. Responses use `Cache-Control: no-store`.

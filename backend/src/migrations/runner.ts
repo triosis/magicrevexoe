@@ -80,6 +80,7 @@ async function verifyLedger(connection: PoolConnection): Promise<void> {
 }
 
 export type MigrationControls={
+ beforeStep?:()=>void
  validateConnection?:(connection:PoolConnection)=>Promise<void>
  inspect?:(connection:PoolConnection,applied:number)=>Promise<void>
  progress?:(event:{event:string;version?:string})=>Promise<void>
@@ -123,6 +124,7 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
       if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
       await controls.progress?.({event:'step_started',version:bootstrap.version})
       if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
+      controls.beforeStep?.()
       // Bootstrap has no ledger yet. A crash in this narrow gap leaves an empty
       // ledger which is deliberately BLOCKED, never silently accepted next run.
       await connection.query(bootstrap.sql)
@@ -149,11 +151,13 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
         if (Number(owner?.owned) !== 1) fail('MIGRATION_LOCK_LOST')
         await controls.progress?.({event:'step_started',version:migration.version})
         if(controls.interrupted?.())fail('MIGRATION_INTERRUPTED')
+        controls.beforeStep?.()
         await connection.execute(`INSERT INTO schema_migrations (version,name,checksum,status,runner_id) VALUES (?,?,?,'applying',?)`,
           [migration.version,migration.name,migration.checksum,randomBytes(16)])
         activeVersion = migration.version
         // Exactly one reviewed SQL statement per file. The driver rejects multiple
         // statements, without unsafe semicolon splitting (including trigger bodies).
+        controls.beforeStep?.()
         await connection.query(migration.sql)
         const verified = await rows(connection, migration.verify)
         if (verified.length !== 1 || Number(verified[0]?.satisfied) !== 1) fail('MIGRATION_POSTCONDITION_FAILED')
