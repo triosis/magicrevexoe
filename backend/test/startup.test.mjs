@@ -28,10 +28,12 @@ for(const name of ['DB_TLS_CA_FILE','DB_TLS_CA_SHA256','AUTH_ACCESS_SECRET','AUT
  const env={...production,PORT:String(await port())};delete env[name];const run=launch(env);try{const [code]=await once(run.child,'exit');assert.equal(code,1);assert.match(run.output(),new RegExp(name));assert.doesNotMatch(run.output(),/Backend listening/);assert.equal(run.output().includes(production.DB_PASSWORD),false);assert.equal(run.output().includes(production.AUTH_ACCESS_SECRET),false)}finally{if(run.child.exitCode===null)run.child.kill()}
 })
 test('production entrypoint binds assigned port without DB/SMTP availability, aliases fail closed, and drains',{timeout:15000},async t=>{
- const listenPort=await port();const run=launch({...production,PORT:String(listenPort)},true);const started=performance.now();
+ const listenPort=await port();const run=launch({...production,PORT:String(listenPort),HTTP_PROXY_MODE:'single-nginx-loopback'},true);const started=performance.now();
  try{
  await new Promise((resolve,reject)=>{run.child.once('error',reject);run.child.once('exit',()=>reject(Error('Exited before listen')));run.child.stdout.on('data',()=>{if(run.output().includes('Backend listening'))resolve()})});t.diagnostic('Local spawn-to-listen milliseconds: '+Math.round(performance.now()-started));
  const base='http://127.0.0.1:'+listenPort;
+ assert.equal((await fetch(base+'/health',{headers:{'x-forwarded-for':'203.0.113.1','x-forwarded-proto':'https'}})).status,200);
+ assert.equal((await fetch(base+'/health',{headers:{'x-forwarded-for':'203.0.113.1, 198.51.100.1','x-forwarded-proto':'https'}})).status,400);
  for(const path of ['/health','/health/live']){const response=await fetch(base+path);assert.equal(response.status,200);assert.deepEqual(await response.json(),{status:'alive'});assert.equal(response.headers.get('cache-control'),'no-store')}
  for(const path of ['/ready','/health/ready']){const response=await fetch(base+path);assert.equal(response.status,503);assert.deepEqual(await response.json(),{status:'not_ready',database:'unavailable'})}
  assert.equal((await fetch(base+'/api/v1/auth/me')).status,401);

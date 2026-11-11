@@ -1,12 +1,13 @@
 import {readFile,open} from 'node:fs/promises'
 import {dirname,resolve} from 'node:path'
-import {randomUUID,createHash} from 'node:crypto'
+import {randomUUID} from 'node:crypto'
 import {createPool} from 'mysql2/promise'
 import {loadMigrations,MigrationError,validateHistory} from './runner.js'
 import {targetPolicy,operatorMigrations,verifyTarget,operatorTransport,type Approval} from './operator.js'
 import {digest,verifySchema,validateManifest,type SchemaManifest} from './schema.js'
 import {checkCloudApproval,verifyCloudGrants,cloudRuntimeRisks} from './cloud-startup.js'
 import {verifyPrivileges} from './privileges.js'
+import {approvedCa} from '../config/tls.js'
 
 // No dotenv, app DB_* fallback, target defaults, raw SQL/grant diagnostics or retries.
 async function main(){
@@ -32,9 +33,10 @@ async function main(){
  }
  const user=process.env.MIGRATION_DB_USER,password=process.env.MIGRATION_DB_PASSWORD
  if(!user||!password)throw new MigrationError('EXPLICIT_MIGRATION_CREDENTIALS_REQUIRED')
- const ca=transport.mode==='required'&&policy.tlsCaFile?await readFile(resolve(dirname(flags['--target']),policy.tlsCaFile),'utf8'):undefined
- if(ca&&createHash('sha256').update(ca).digest('hex')!==policy.tlsCaSha256)throw new MigrationError('TLS_CA_FINGERPRINT_MISMATCH')
- const pool=createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:5000,charset:'utf8mb4',timezone:'Z',multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true,...(ca?{ssl:{ca,rejectUnauthorized:true,verifyIdentity:true,minVersion:'TLSv1.2'}}:{})})
+ // Required TLS must validate exact CA bytes before even constructing a pool.
+ // Never use CA truthiness to select plaintext (an empty file is falsy).
+ const ssl=transport.mode==='required'?{ca:approvedCa(policy.tlsCaFile?resolve(dirname(flags['--target']),policy.tlsCaFile):undefined,policy.tlsCaSha256),rejectUnauthorized:true,verifyIdentity:true,minVersion:'TLSv1.2' as const}:undefined
+ const pool=createPool({host:policy.host,port:policy.port,database:policy.database,user,password,connectionLimit:1,waitForConnections:false,connectTimeout:5000,charset:'utf8mb4',timezone:'Z',multipleStatements:false,supportBigNumbers:true,bigNumberStrings:true,...(ssl?{ssl}:{})})
  const audit=command==='apply'?await open(flags['--audit']!,'wx',0o600):undefined
  let interrupted=false
  const interrupt=()=>{interrupted=true};process.on('SIGINT',interrupt);process.on('SIGTERM',interrupt)

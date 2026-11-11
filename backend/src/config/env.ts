@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { z } from 'zod'
 import {databaseTransport} from './database-transport.js'
+import {validateHttpProxy} from './http-proxy.js'
 
 // Resolve only the backend .env, regardless of the process working directory.
 // Host-provided environment variables retain priority over the local file.
@@ -20,6 +21,7 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().trim().min(1).default('127.0.0.1'),
   PORT: integer(3001, 65535),
+  HTTP_PROXY_MODE: z.enum(['direct','single-nginx-loopback']).optional(),
   CORS_ORIGINS: origins,
   DB_HOST: required,
   DB_PORT: integer(3306, 65535),
@@ -72,6 +74,7 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv): Env {
     if (smtpPassword.length < 16 || new Set(smtpPassword).size < 8) fields.push('AUTH_SMTP_PASSWORD')
     if (fields.length) throw Error(`Missing or invalid production environment variables: ${[...new Set(fields)].join(', ')}`)
   }
+  validateHttpProxy(result.data)
   databaseTransport(result.data)
   return result.data
 }

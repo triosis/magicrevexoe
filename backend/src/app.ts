@@ -22,6 +22,7 @@ import type {BillingService} from './billing/service.js'
 import {billingRoutes} from './billing/routes.js'
 import {PresentationService} from './business/presentation.js'
 import {presentationRoutes} from './business/presentation-routes.js'
+import {configureHttpProxy} from './config/http-proxy.js'
 
 type Dependencies = {
   env: Env
@@ -70,6 +71,7 @@ export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, b
   const app = express()
   app.disable('x-powered-by')
   app.use(helmet())
+  configureHttpProxy(app,env)
   app.use(cors({
     origin(origin, callback) {
       // No Origin header is normal for health probes and server-to-server calls.

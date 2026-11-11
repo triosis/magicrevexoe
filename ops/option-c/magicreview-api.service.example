@@ -1,0 +1,38 @@
+# REVIEW ONLY. No install/start/enable action authorized.
+[Unit]
+Description=MagicReviewAI API (review-only Option C template)
+After=network.target mariadb.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=magicreview-api
+Group=magicreview-api
+WorkingDirectory=/srv/magicreview/current/backend
+# Root-owned 0600 environment file read by the system manager, not dotenv.
+EnvironmentFile=/etc/magicreview/api.env
+# Verify approved Node24 absolute path; this placeholder fails until reviewed.
+ExecStart=/REVIEW_REQUIRED/node24 /srv/magicreview/current/backend/dist/server.js
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+# Review measured native Argon2/Node memory before adding MemoryMax/CPUQuota.
+# No ExecStartPre migration, install, key generation, bootstrap or SMTP verification.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+# REVIEW ONLY: systemd-sysusers syntax; do not run/install without approval.
+# Separate OS users do not automatically create database identities or grants.
+u magicreview-api - "MagicReviewAI API" /nonexistent /usr/sbin/nologin
+# MariaDB package owns its mysql user; do not replace it with the API identity.
+# DBA, migration/backup operators and any PKI signer remain separate protected roles.

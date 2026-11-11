@@ -1,0 +1,51 @@
+# REVIEW ONLY: not installed. Replace all REVIEW_REQUIRED paths; nginx -t later.
+# One direct Nginx hop; no CDN, real_ip_header, PROXY protocol or inherited
+# set_real_ip_from trust. Those require a different reviewed topology.
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+    return 444;
+}
+server {
+    listen 80;
+    server_name api.revexoe.com;
+    return 308 https://api.revexoe.com$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name api.revexoe.com;
+    ssl_certificate /REVIEW_REQUIRED/https-fullchain.pem;
+    ssl_certificate_key /REVIEW_REQUIRED/https-private-key.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 64k;
+    client_header_timeout 15s;
+    client_body_timeout 30s;
+    # Review default-server conflicts with the complete installed configuration.
+    location / {
+        # No URI suffix: preserve /api/v1 and all health paths exactly.
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host api.revexoe.com;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header Forwarded "";
+        proxy_set_header X-Real-IP "";
+        proxy_set_header X-Forwarded-Port "";
+        proxy_set_header Connection "";
+        # Authorization, content type and signature/event headers pass unchanged.
+        # Do not rewrite/decode the body, add a URI suffix or retry writes.
+        proxy_next_upstream off;
+        proxy_cache off;
+        proxy_intercept_errors off;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 35s;
+        proxy_send_timeout 35s;
+    }
+}

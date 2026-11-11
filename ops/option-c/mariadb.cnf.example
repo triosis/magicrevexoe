@@ -1,0 +1,15 @@
+# REVIEW ONLY. Confirm MariaDB11.8 options, package layout and permissions first.
+[mariadbd]
+bind-address=127.0.0.1
+port=3306
+require_secure_transport=ON
+tls_version=TLSv1.2,TLSv1.3
+ssl_cert=/REVIEW_REQUIRED/database-server-chain.pem
+ssl_key=/REVIEW_REQUIRED/database-server-private-key.pem
+ssl_ca=/REVIEW_REQUIRED/database-ca.pem
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+default-storage-engine=InnoDB
+sql_mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+# No public/IPv6 wildcard listener, disabled FK/CHECK checks or bootstrap SQL.
+# REQUIRE SSL account clauses/grants are a separately approved DBA operation.

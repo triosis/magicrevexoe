@@ -44,7 +44,8 @@ export function authRoutes(service?: AuthService) {
     return router
   }
   const limit: RequestHandler = (request,response,next)=>{
-    // trust proxy is deliberately disabled; untrusted X-Forwarded-For is ignored.
+    // Direct mode ignores XFF. Explicit single-Nginx mode validates one hop;
+    // the trusted proxy must overwrite client-supplied forwarding headers.
     try { limiter.consume(`ip:${request.ip ?? request.socket.remoteAddress}`,60) }
     catch(error) {response.set('Retry-After','900');throw error}
     next()

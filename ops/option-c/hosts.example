@@ -1,0 +1,4 @@
+# REVIEW ONLY. Proposed controlled name, not a published DNS change.
+# Certificate must contain DNS:db.internal.revexoe.com after owner approval.
+# Required TLS uses this DNS identity even though its address is loopback.
+127.0.0.1 db.internal.revexoe.com
