@@ -5,7 +5,7 @@ production approvals or production-ready service configuration. Do not copy/star
 them without the existing independent gates. No credentials/certificates are
 provided. All REPLACE_WITH_/REVIEW_REQUIRED values must be resolved privately.
 
-The approved topology is one Nginx receiving clients directly, forwarding to one
+The reviewed topology is one Nginx receiving clients directly, forwarding to one
 Node process on127.0.0.1:3001, and MariaDB on127.0.0.1:3306 using verified DNS TLS.
 No CDN, load balancer, forwarded-IP trust extension, containers or multiple Node
 workers are included. Exact127.0.0.1 (and its mapped IPv4 socket representation)
@@ -65,3 +65,9 @@ on parent directories and certificate renewal replacement files, not only leaf f
 No Linux Nginx/systemd/MariaDB configuration compatibility or production deployment
 is claimed by a passing Windows HTTP/test suite. See the five HOSTINGER_FULL_VPS
 reports for full NO-GO, cutover and recovery conditions.
+
+Phase2 local capability investigation found no installed Linux runtime. The
+[disposable Linux validation packet](linux-validation/README.md) and
+[native DBA recovery procedure](linux-validation/NATIVE_RECOVERY_PROCEDURE.md)
+are prepared for review, not executed Linux acceptance. See
+[Phase2 decision](../../reports/HOSTINGER_OPTION_C_PHASE2_GO_NO_GO.md).
