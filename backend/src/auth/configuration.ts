@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { configuredSmtp } from './smtp.js'
 import type { Pool } from 'mysql2/promise'
 import { AuthService, type TokenDelivery } from './service.js'
+import {platformOwnerEmail} from '../config/platform-owner.js'
 
 const secret = z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/).refine(value=>{
   const key=Buffer.from(value,'base64')
@@ -9,7 +10,7 @@ const secret = z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/).refine(value=>{
 })
 export function configuredAuth(pool: Pool, environment: NodeJS.ProcessEnv): AuthService | undefined {
   const passwordOnly=environment.AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL
-  if(passwordOnly!==undefined&&passwordOnly!=='rxadmin@revexoe.com')throw Error('Invalid AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL configuration')
+  if(passwordOnly!==undefined&&passwordOnly!==platformOwnerEmail)throw Error('Invalid AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL configuration')
   if (!environment.AUTH_ACCESS_SECRET) {if(environment.NODE_ENV==='production')throw Error('Missing authentication configuration');return undefined}
   const parsed=secret.safeParse(environment.AUTH_ACCESS_SECRET)
   if (!parsed.success) throw new Error('Invalid AUTH_ACCESS_SECRET configuration')

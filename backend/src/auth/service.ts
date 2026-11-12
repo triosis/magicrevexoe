@@ -1,4 +1,5 @@
 import {MfaFactors} from './mfa.js'
+import {platformOwnerEmail} from '../config/platform-owner.js'
 import type {Database} from './database.js'
 import { randomBytes } from 'node:crypto'
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise'
@@ -24,7 +25,7 @@ export class AuthService {
   readonly authorization: Authorization
   private readonly tokens: AccessTokens
   constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>, mfaKey?:Uint8Array, private readonly passwordOnlySuperAdminEmail?:string) {
-    if(passwordOnlySuperAdminEmail!==undefined&&passwordOnlySuperAdminEmail!=='rxadmin@revexoe.com')throw Error('Invalid password-only Super Admin policy')
+    if(passwordOnlySuperAdminEmail!==undefined&&passwordOnlySuperAdminEmail!==platformOwnerEmail)throw Error('Invalid password-only Super Admin policy')
     this.mfa=new MfaFactors(mfaKey)
     this.feedbackTokens=new FeedbackTokens(key)
     this.tokens = new AccessTokens(key)

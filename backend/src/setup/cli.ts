@@ -4,6 +4,7 @@ import {createDatabasePool} from '../db/pool.js'
 import {targetPolicy,verifyTarget,operatorTransport} from '../migrations/operator.js'
 import {digest} from '../migrations/schema.js'
 import {bootstrapPlatform} from './bootstrap.js'
+import {platformOwnerEmail} from '../config/platform-owner.js'
 import {checkCloudApproval,verifyCloudGrants} from '../migrations/cloud-startup.js'
 import type {SchemaManifest} from '../migrations/schema.js'
 import {checkWildcardApproval,verifyWildcardGrants,wildcardReleaseFingerprint,wildcardDisclosure} from '../migrations/hostinger-wildcard.js'
@@ -39,7 +40,7 @@ try {
     if(triggers.some(t=>t.DEFINER!==policy.expectedAccount))throw Error('Unexpected shared trigger definer')
    }
   }finally{db.release()}
-  const result=await bootstrapPlatform(pool,{platformName:process.env.BOOTSTRAP_PLATFORM_NAME,email:process.env.BOOTSTRAP_OWNER_EMAIL,displayName:process.env.BOOTSTRAP_OWNER_NAME,password:process.env.BOOTSTRAP_OWNER_PASSWORD},async db=>{
+  const result=await bootstrapPlatform(pool,{platformName:process.env.BOOTSTRAP_PLATFORM_NAME,email:process.env.BOOTSTRAP_OWNER_EMAIL??platformOwnerEmail,displayName:process.env.BOOTSTRAP_OWNER_NAME,password:process.env.BOOTSTRAP_OWNER_PASSWORD},async db=>{
    checkCloudApproval(policy,cloudApprovalId)
    checkWildcardApproval(policy,wildcardApprovalId,'bootstrap')
    if(db&&policy.hostingerWildcard){

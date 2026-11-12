@@ -7,6 +7,7 @@ import {targetPolicy} from '../migrations/operator.js'
 import {digest} from '../migrations/schema.js'
 import {wildcardReleaseFingerprint} from '../migrations/hostinger-wildcard.js'
 import {validLocalApprovalId} from '../config/database-transport.js'
+import {platformOwnerEmail} from '../config/platform-owner.js'
 
 const absolute=z.string().refine(isAbsolute)
 export const initializationJob=z.object({
@@ -39,10 +40,11 @@ export async function runInitializationJob(jobFile:string,environment:NodeJS.Pro
  const env:NodeJS.ProcessEnv={}
  for(const key of [...inherited,...approvalInputs])if(environment[key]!==undefined)env[key]=environment[key]
  const bootstrap=job.action==='bootstrap'
- const secrets=bootstrap?['BOOTSTRAP_DB_USER','BOOTSTRAP_DB_PASSWORD','BOOTSTRAP_PLATFORM_NAME','BOOTSTRAP_OWNER_EMAIL','BOOTSTRAP_OWNER_NAME','BOOTSTRAP_OWNER_PASSWORD']:['MIGRATION_DB_USER','MIGRATION_DB_PASSWORD']
+ const secrets=bootstrap?['BOOTSTRAP_DB_USER','BOOTSTRAP_DB_PASSWORD','BOOTSTRAP_PLATFORM_NAME','BOOTSTRAP_OWNER_NAME','BOOTSTRAP_OWNER_PASSWORD']:['MIGRATION_DB_USER','MIGRATION_DB_PASSWORD']
  for(const key of secrets){if(!environment[key])throw Error('Missing protected operator input');env[key]=environment[key]}
  // Reuse bootstrap's actual password rules before reserving a mutating attempt.
  if(bootstrap){
+  env.BOOTSTRAP_OWNER_EMAIL=environment.BOOTSTRAP_OWNER_EMAIL??platformOwnerEmail
   const {bootstrapInput}=await import('./bootstrap.js')
   bootstrapInput.parse({platformName:env.BOOTSTRAP_PLATFORM_NAME,email:env.BOOTSTRAP_OWNER_EMAIL,displayName:env.BOOTSTRAP_OWNER_NAME,password:env.BOOTSTRAP_OWNER_PASSWORD})
  }

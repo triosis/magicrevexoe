@@ -49,12 +49,14 @@ test('HTTPS setup dispatches explicit jobs through real operator and bootstrap C
   assert.equal(Number((await fixture.admin.query(`SELECT COUNT(*) AS n FROM ${q(database)}.schema_migrations WHERE status='applied'`))[0][0].n),85)
   assert.equal(Number((await fixture.admin.query('SELECT COUNT(*) AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=?',[database]))[0][0].n),46)
   const bootstrap={...policy,expectedAccount:'root@localhost',allowedTriggerDefiners:[user+'@localhost']}
-  const inputs={BOOTSTRAP_DB_USER:'root',BOOTSTRAP_DB_PASSWORD:fixture.options.password,BOOTSTRAP_PLATFORM_NAME:'Synthetic local job',BOOTSTRAP_OWNER_EMAIL:'rxadmin@revexoe.com',BOOTSTRAP_OWNER_NAME:'Synthetic local owner',BOOTSTRAP_OWNER_PASSWORD:ownerPassword}
+  // No email input: the configured fixed owner must flow through job and CLI.
+  const email='rxadmin@revexoe.com'
+  const inputs={BOOTSTRAP_DB_USER:'root',BOOTSTRAP_DB_PASSWORD:fixture.options.password,BOOTSTRAP_PLATFORM_NAME:'Synthetic local job',BOOTSTRAP_OWNER_NAME:'Synthetic local owner',BOOTSTRAP_OWNER_PASSWORD:ownerPassword}
   await job('bootstrap',bootstrap,inputs);await assert.rejects(job('bootstrap',bootstrap,inputs))
   pool=createDatabasePool({DB_HOST:'127.0.0.1',DB_PORT:fixture.options.port,DB_NAME:database,DB_USER:'root',DB_PASSWORD:fixture.options.password,DB_CONNECTION_LIMIT:1})
-  const auth=configuredAuth(pool,{NODE_ENV:'test',AUTH_ACCESS_SECRET:randomBytes(32).toString('base64'),AUTH_MFA_KEY:randomBytes(32).toString('base64'),AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL:inputs.BOOTSTRAP_OWNER_EMAIL})
-  await assert.rejects(auth.login(inputs.BOOTSTRAP_OWNER_EMAIL,'wrong'),e=>e.status===401)
-  const login=await auth.login(inputs.BOOTSTRAP_OWNER_EMAIL,ownerPassword);assert.ok(login.accessToken);assert.equal(login.mfaRequired,undefined)
+  const auth=configuredAuth(pool,{NODE_ENV:'test',AUTH_ACCESS_SECRET:randomBytes(32).toString('base64'),AUTH_MFA_KEY:randomBytes(32).toString('base64'),AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL:email})
+  await assert.rejects(auth.login(email,'wrong'),e=>e.status===401)
+  const login=await auth.login(email,ownerPassword);assert.ok(login.accessToken);assert.equal(login.mfaRequired,undefined)
   const principal=await auth.authenticate(login.accessToken),me=await auth.me(principal),selected=await auth.selectTenant(principal,me.memberships[0].membershipId)
   assert.equal((await auth.authenticate(selected.accessToken)).membership.roleCode,'super_admin')
   for(const file of await readdir(state)){const text=await readFile(join(state,file),'utf8');assert.equal(text.includes(ownerPassword)||text.includes(password)||text.includes(fixture.options.password),false,'Private job artifacts must not contain credentials')}

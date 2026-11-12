@@ -16,6 +16,7 @@
     "test:browser": "node scripts/browser-tests.mjs",
     "test:e2e:real": "npm --prefix backend run build && node --test scripts/e2e-real.mjs",
     "test:server": "node --test test/frontend-server.test.mjs",
+    "test:super-admin:browser": "npm --prefix backend run build && node --test scripts/super-admin-login.browser.mjs",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview",
     "dev:api": "npm --prefix backend run dev",
