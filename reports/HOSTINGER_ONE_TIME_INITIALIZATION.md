@@ -1,5 +1,9 @@
 # One-time Hostinger initialization job
 
+For the new database-backed managed cron entry point, see
+[Hostinger cron initialization](HOSTINGER_CRON_INITIALIZATION.md). The file-based
+mechanism below remains available and still requires private persistent storage.
+
 2026-11-12. Local implementation only. Production remains NO-GO. No production
 connection, settings change, migration, bootstrap, deployment, commit or push.
 

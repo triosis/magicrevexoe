@@ -60,7 +60,7 @@ export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:(db?:Po
     await db.execute("INSERT INTO tenant_memberships(tenant_id,tenant_kind,user_id,role_id,status) VALUES (?,'platform',?,?,'active')",[tenant.id,user.id,role.id])
     const membership=(await select(db,'SELECT id FROM tenant_memberships WHERE tenant_id=? AND user_id=?',[tenant.id,user.id]))[0]!
     await db.execute("INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata) VALUES (?,?,?,?,?,'platform.bootstrapped','tenant',?,?,'success','{}')",[randomBytes(16),tenant.id,user.id,tenant.id,membership.id,tenant.id,randomBytes(16)])
-    authorize()
+    await authorize()
     await db.commit()
     return {initialized:true,created:true}
   } catch(error) {await db.rollback().catch(()=>{});throw error}

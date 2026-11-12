@@ -33,6 +33,8 @@
     "test:integration": "npm run build && node --test --test-concurrency=1 test/*integration.mjs",
     "bootstrap": "npm run build && node dist/setup/cli.js",
     "initialize:job": "node dist/setup/job-cli.js",
+    "initialize:cron": "node dist/setup/cron-cli.js",
+    "test:cron:integration": "npm run build && node --test test/cron-initialization.integration.mjs",
     "smtp:verify": "npm run build && node dist/auth/smtp-cli.js",
     "recovery": "npm run build && node scripts/recovery/cli.mjs",
     "test:recovery:integration": "npm run build && node --test test/recovery.integration.mjs"
