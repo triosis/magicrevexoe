@@ -125,6 +125,18 @@ test('actual encrypted backup, verified restoration and restored application on 
    const cliBackup=await cli(['backup','--target',sourcePolicy,'--bin',process.env.MARIADB_TEST_BIN,'--output',outputRoot]);assert.equal((await cli(['verify','--manifest',cliBackup.manifestFile])).restoreVerified,false)
    const result=await cli(['restore','--target',targetPolicy,'--bin',process.env.MARIADB_TEST_BIN,'--output',outputRoot,'--manifest',cliBackup.manifestFile,'--confirm','RESTORE-EMPTY:'+digest(x.policy)]);assert.equal(result.restoreVerified,true)
   })
+  await t.test('restored TOTP ciphertext refuses a different MFA key and remains usable with the matching key',async()=>{
+   const before=(await q(restored.pool,'SELECT secret_cipher,pending_cipher FROM user_mfa WHERE user_id=?',[superUser.id]))[0]
+   const wrong=new AuthService(restored.pool,accessKey,undefined,undefined,randomBytes(32))
+   const rejected=await wrong.login('super-recovery@example.invalid',password)
+   assert.equal(rejected.mfaRequired,true);assert.equal(rejected.accessToken,undefined)
+   await assert.rejects(wrong.verifyMfa(rejected.challengeToken,'123456'),e=>e.status===503&&e.message==='MFA temporarily unavailable')
+   const after=(await q(restored.pool,'SELECT secret_cipher,pending_cipher FROM user_mfa WHERE user_id=?',[superUser.id]))[0]
+   assert.ok(before.secret_cipher.equals(after.secret_cipher));assert.equal(after.pending_cipher,before.pending_cipher)
+   const matching=new AuthService(restored.pool,accessKey,undefined,undefined,mfaKey),challenge=await matching.login('super-recovery@example.invalid',password)
+   const verified=await matching.verifyMfa(challenge.challengeToken,otp.generate({timestamp:Date.now()+30000}))
+   assert.ok(await matching.authenticate(verified.accessToken))
+  })
   await t.test('application services work on restored data with MFA, isolation, public feedback, usage and QR content',async()=>{
    const auth=new AuthService(restored.pool,accessKey,undefined,undefined,mfaKey),tenants=new TenantService(restored.pool,auth),funnels=new FunnelService(restored.pool,tenants,auth,'https://api.example.invalid','https://app.example.invalid'),feedback=new FeedbackService(tenants,auth,funnels),subscriptions=new SubscriptionService(tenants)
    const challenge=await auth.login('super-recovery@example.invalid',password);assert.equal(challenge.mfaRequired,true);await assert.rejects(auth.authenticate(challenge.challengeToken));const verified=await auth.verifyMfa(challenge.challengeToken,recoveryCodes.shift());const platform=await auth.authenticate((await auth.selectTenant(await auth.authenticate(verified.accessToken),superMid)).accessToken)
