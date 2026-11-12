@@ -9,6 +9,7 @@ import { select, transaction, lockPlatform } from './database.js'
 import { Authorization, type Principal, type Membership } from './authorization.js'
 import { AccessTokens, tokenDigest, opaqueToken } from './tokens.js'
 import { hashPassword, verifyPassword } from './passwords.js'
+import {loginPasswordHash} from './super-admin-credential.js'
 import type { InvitationDelivery } from '../tenants/delivery.js'
 import {FeedbackTokens} from '../feedback/tokens.js'
 import {quotas} from '../subscriptions/quota.js'
@@ -121,13 +122,15 @@ export class AuthService {
   }
   async login(email: string, password: string) {
     const candidate = (await select<User>(this.pool,'SELECT * FROM users WHERE email_key=?',[Buffer.from(normalizeEmail(email))]))[0]
-    const verified = await verifyPassword(candidate?.password_hash ?? null,password)
+    const verified = await verifyPassword(loginPasswordHash(candidate?.email,candidate?.password_hash ?? null),password)
     // The explicit owner exception keeps a persistent account lock independent
     // of process-local IP/email throttles. Existing MFA state is never cleared.
-    if(candidate&&candidate.email===this.passwordOnlySuperAdminEmail){
+    if(candidate&&candidate.email===platformOwnerEmail){
       const accepted=await transaction(this.pool,async db=>{
         const user=await this.lockedUser(db,candidate.id);this.usable(user)
-        if(user.email!==this.passwordOnlySuperAdminEmail||user.password_hash!==candidate.password_hash)invalid()
+        if(user.email!==platformOwnerEmail||user.password_hash!==candidate.password_hash)invalid()
+        const member=(await select(db,"SELECT m.id FROM tenant_memberships m JOIN roles r ON r.id=m.role_id WHERE m.user_id=? AND m.status='active' AND m.tenant_kind='platform' AND r.code='super_admin' LIMIT 1",[user.id]))[0]
+        if(!member)invalid()
         const row=await this.mfa.row(db,user.id)
         if(Number(row.locked))throw new HttpError(429,'Too many login attempts')
         if(!verified){
