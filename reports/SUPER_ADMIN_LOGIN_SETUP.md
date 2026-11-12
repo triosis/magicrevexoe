@@ -1,5 +1,10 @@
 # First Super Admin login: minimum setup handoff
 
+> Follow-up: the owner explicitly requested password-only login for
+> rxadmin@revexoe.com. See [current password-only release packet](SUPER_ADMIN_PASSWORD_LOGIN_RELEASE.md).
+> MFA remains the default for other Super Admins. The MFA flow below is historical
+> local evidence; no production policy or account was changed.
+
 2026-11-12. Local disposable verification only. No production connection, schema/
 permission/credential change, real owner, deployment, commit or push. No application
 code changed. Production setup remains blocked pending the existing approvals.

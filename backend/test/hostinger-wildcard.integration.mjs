@@ -29,6 +29,7 @@ async function owned(port){
  const [publicRows]=await fixture.admin.query("SELECT Db FROM mysql.db WHERE User='PUBLIC' AND Db LIKE 'test%'");for(const row of publicRows)await fixture.admin.query('REVOKE ALL PRIVILEGES ON '+quote(row.Db)+'.* FROM PUBLIC')
  await fixture.admin.query('CREATE DATABASE '+quote(database)+' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
  await fixture.admin.query("CREATE USER ?@'127.0.0.1' IDENTIFIED BY ?",[user,password])
+ await fixture.admin.query("GRANT USAGE ON *.* TO ?@'127.0.0.1' WITH MAX_STATEMENT_TIME 180.000000",[user])
  await fixture.admin.query('GRANT ALL PRIVILEGES ON '+quote(database)+".* TO ?@'127.0.0.1'",[user])
  const pool=createPool({...fixture.options,user,password,database,connectionLimit:3,charset:'utf8mb4',timezone:'Z',supportBigNumbers:true,bigNumberStrings:true});pools.push(pool);pool.on('connection',c=>sessions.add(c))
  const [[id]]=await pool.query('SELECT CURRENT_USER() AS account,@@hostname AS hostname');assert.equal(id.account,account)

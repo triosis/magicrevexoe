@@ -7,6 +7,14 @@ import {inspectCloudGrants} from '../dist/migrations/cloud-startup.js'
 const all='GRANT ALL PRIVILEGES ON `'+wildcardDatabase+'`.* TO `u676472791_magicrev_user`@`127.0.0.1`'
 const approval=()=>({phase:'initial',approvalId:'TEST-ONLY-WILDCARD',operatorReference:'TEST-ONLY-OPERATOR',recoveryReference:'TEST-ONLY-RECOVERY',runtimeApprovalReference:'TEST-ONLY-RUNTIME',grantFingerprint:inspectWildcardGrants([all],'initial'),manifestFingerprint:'a'.repeat(64),releaseFingerprint:'b'.repeat(64),notBefore:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+60000).toISOString(),riskAcknowledgement:wildcardAcknowledgement})
 const policy=()=>targetPolicy.parse({environment:'production',host:'127.0.0.1',port:3306,database:wildcardDatabase,expectedAccount:wildcardAccount,serverHostname:'synthetic',transport:'HOSTINGER_LOCAL',hostingerLocalApprovalId:'TEST-ONLY-TRANSPORT',hostingerWildcard:approval()})
+test('only reviewed global USAGE statement-time limit is accepted and fingerprint-bound',()=>{
+ const usage='GRANT USAGE ON *.* TO `u676472791_magicrev_user`@`127.0.0.1`',limited=usage+' WITH MAX_STATEMENT_TIME 180.000000'
+ assert.ok(inspectWildcardGrants([limited,all],'initial'))
+ assert.notEqual(inspectWildcardGrants([limited,all],'initial'),inspectWildcardGrants([usage,all],'initial'))
+ assert.ok(inspectWildcardGrants([usage+" IDENTIFIED BY PASSWORD '*synthetic' WITH MAX_STATEMENT_TIME 180.000000",all],'initial'))
+ for(const suffix of [' WITH MAX_STATEMENT_TIME 0.000000',' WITH MAX_STATEMENT_TIME 180',' WITH MAX_STATEMENT_TIME 181.000000',' WITH MAX_STATEMENT_TIME 180.000000 WITH GRANT OPTION',' WITH MAX_USER_CONNECTIONS 5',' WITH MAX_STATEMENT_TIME 180.000000 MAX_QUERIES_PER_HOUR 10'])assert.throws(()=>inspectWildcardGrants([usage+suffix,all],'initial'))
+ assert.throws(()=>inspectWildcardGrants([all+' WITH MAX_STATEMENT_TIME 180.000000'],'initial'))
+})
 test('wildcard authority is isolated from all original grant profiles',()=>{
  for(const phase of ['migration','runtime'])assert.throws(()=>inspectGrants([all],wildcardDatabase,phase))
  for(const phase of ['initial-maintenance','runtime-dbwide'])assert.throws(()=>inspectCloudGrants([all],wildcardDatabase,phase))

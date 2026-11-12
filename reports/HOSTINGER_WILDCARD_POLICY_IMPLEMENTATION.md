@@ -1,5 +1,10 @@
 # Hostinger wildcard policy: local implementation and security limits
 
+> Follow-up: exact global USAGE resource clause `WITH MAX_STATEMENT_TIME 180.000000`
+> is now supported and fingerprint-bound; other resource clauses still refuse.
+> See [current release packet](SUPER_ADMIN_PASSWORD_LOGIN_RELEASE.md) for new hashes
+> and validation; older hashes/results below identify the earlier implementation.
+
 2026-11-12. **Local development/disposable testing only. Production NO-GO.**
 Implemented under the owner's attached local-only request. No Hostinger access,
 production SQL/data/grant/environment/credential change, real Super Admin, purchase,

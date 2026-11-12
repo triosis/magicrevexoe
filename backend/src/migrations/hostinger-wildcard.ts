@@ -52,17 +52,24 @@ export async function wildcardReleaseFingerprint(){
 // Intentionally weaker authority contract, never called by existing profiles.
 // Require precisely one reviewed raw schema row and optional global USAGE only.
 export function inspectWildcardGrants(lines:string[],phase:WildcardPolicy['phase']){
- let schema:string[]|undefined,usage=false
+ let schema:string[]|undefined,usage=false,statementLimit:string|undefined
  for(const line of lines){
   const m=/^GRANT (.+) ON (\*|`[^`]+`)\.\* TO [`']([^`']+)[`']@[`']([^`']+)[`'](.*)$/.exec(line)
-  if(!m||m[3]+'@'+m[4]!==wildcardAccount||/\bWITH\b|\bPUBLIC\b/i.test(line)||!/^(?:| IDENTIFIED (?:BY PASSWORD|VIA|WITH) .*)$/.test(m[5]!))throw new MigrationError('HOSTINGER_WILDCARD_UNEXPECTED_GRANTS')
+  if(!m||m[3]+'@'+m[4]!==wildcardAccount||/\bPUBLIC\b/i.test(line))throw new MigrationError('HOSTINGER_WILDCARD_UNEXPECTED_GRANTS')
+  let tail=m[5]!
+  const limited=tail.endsWith(' WITH MAX_STATEMENT_TIME 180.000000')
+  if(limited){
+   if(m[2]!=='*'||m[1]!=='USAGE')throw new MigrationError('HOSTINGER_WILDCARD_UNEXPECTED_GRANTS')
+   tail=tail.slice(0,-' WITH MAX_STATEMENT_TIME 180.000000'.length);statementLimit='180.000000'
+  }
+  if(/\bWITH\b/i.test(tail)||!/^(?:| IDENTIFIED (?:BY PASSWORD|VIA) .*)$/.test(tail))throw new MigrationError('HOSTINGER_WILDCARD_UNEXPECTED_GRANTS')
   if(m[2]==='*'&&m[1]==='USAGE'&&!usage){usage=true;continue}
   if(m[2]!=='`'+wildcardDatabase+'`'||schema)throw new MigrationError('HOSTINGER_WILDCARD_PATTERN_MISMATCH')
   schema=m[1]!.split(',').map(x=>x.trim()).sort()
  }
  const expected=phase==='runtime'?['INSERT','SELECT','TRIGGER','UPDATE']:['ALL PRIVILEGES']
  if(!schema||JSON.stringify(schema)!==JSON.stringify(expected))throw new MigrationError('HOSTINGER_WILDCARD_PRIVILEGE_SET_MISMATCH')
- return digest({pattern:wildcardDatabase,account:wildcardAccount,authority:schema})
+ return digest({pattern:wildcardDatabase,account:wildcardAccount,authority:schema,...(statementLimit?{maxStatementTime:statementLimit}:{})})
 }
 export async function verifyWildcardGrants(db:PoolConnection,policy:WildcardPolicy){
  const [[identity]]=await db.query<RowDataPacket[]>('SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS role,VERSION() AS version')

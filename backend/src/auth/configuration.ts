@@ -8,6 +8,8 @@ const secret = z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/).refine(value=>{
   return new Set(key).size>=16 && key.byteLength>=32 && key.byteLength<=128 && key.toString('base64')===value
 })
 export function configuredAuth(pool: Pool, environment: NodeJS.ProcessEnv): AuthService | undefined {
+  const passwordOnly=environment.AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL
+  if(passwordOnly!==undefined&&passwordOnly!=='rxadmin@revexoe.com')throw Error('Invalid AUTH_PASSWORD_ONLY_SUPER_ADMIN_EMAIL configuration')
   if (!environment.AUTH_ACCESS_SECRET) {if(environment.NODE_ENV==='production')throw Error('Missing authentication configuration');return undefined}
   const parsed=secret.safeParse(environment.AUTH_ACCESS_SECRET)
   if (!parsed.success) throw new Error('Invalid AUTH_ACCESS_SECRET configuration')
@@ -17,5 +19,5 @@ export function configuredAuth(pool: Pool, environment: NodeJS.ProcessEnv): Auth
   const smtp = configuredSmtp(environment)
   const deliver: TokenDelivery | undefined = smtp?.send
   const verifyDelivery = smtp?.verify
-  return new AuthService(pool,Buffer.from(parsed.data,'base64'),deliver,verifyDelivery,mfaKey)
+  return new AuthService(pool,Buffer.from(parsed.data,'base64'),deliver,verifyDelivery,mfaKey,passwordOnly)
 }

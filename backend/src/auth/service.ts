@@ -23,14 +23,18 @@ export class AuthService {
   readonly feedbackTokens:FeedbackTokens
   readonly authorization: Authorization
   private readonly tokens: AccessTokens
-  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>, mfaKey?:Uint8Array) {
+  constructor(private readonly pool: Pool, key: Uint8Array, private readonly deliver?: TokenDelivery, private readonly verifyDelivery?: () => Promise<void>, mfaKey?:Uint8Array, private readonly passwordOnlySuperAdminEmail?:string) {
+    if(passwordOnlySuperAdminEmail!==undefined&&passwordOnlySuperAdminEmail!=='rxadmin@revexoe.com')throw Error('Invalid password-only Super Admin policy')
     this.mfa=new MfaFactors(mfaKey)
     this.feedbackTokens=new FeedbackTokens(key)
     this.tokens = new AccessTokens(key)
     this.authorization = new Authorization(pool)
   }
 
-  async requiresMfa(db:Database,user:string){return !!(await select(db,"SELECT m.id FROM tenant_memberships m JOIN roles r ON r.id=m.role_id WHERE m.user_id=? AND m.status='active' AND m.tenant_kind='platform' AND r.code='super_admin' LIMIT 1",[user]))[0]}
+  async requiresMfa(db:Database,user:string){
+    const member=(await select(db,"SELECT m.id,u.email FROM tenant_memberships m JOIN roles r ON r.id=m.role_id JOIN users u ON u.id=m.user_id WHERE m.user_id=? AND m.status='active' AND m.tenant_kind='platform' AND r.code='super_admin' LIMIT 1",[user]))[0]
+    return !!member&&member.email!==this.passwordOnlySuperAdminEmail
+  }
   private async challengeUser(token:string){
     const hint=(await select(this.pool,'SELECT user_id FROM auth_sessions WHERE token_hash=?',[tokenDigest(token)]))[0]
     if(!hint)invalid()
@@ -97,7 +101,7 @@ export class AuthService {
     const root = (await select(connection, "SELECT id FROM tenants WHERE platform_slot=1"))[0]
     if (!root) throw new HttpError(503, 'Authentication temporarily unavailable')
     await connection.execute(`INSERT INTO audit_logs(event_id,tenant_id,actor_user_id,actor_tenant_id,actor_membership_id,action,resource_type,resource_id,request_id,outcome,safe_metadata)
-      VALUES (?,?,?,?,?,?,'user',?,?,?,'{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16),['auth.mfa_rejected','auth.refresh_replay'].includes(action)?'denied':'success'])
+      VALUES (?,?,?,?,?,?,'user',?,?,?,'{}')`, [randomBytes(16),member?.tenantId ?? root.id,userId,member?.tenantId ?? null,member?.membershipId ?? null,action,userId,randomBytes(16),['auth.mfa_rejected','auth.password_rejected','auth.refresh_replay'].includes(action)?'denied':'success'])
   }
   private async session(connection: PoolConnection, user: User, family: Buffer = randomBytes(16), expires?: Date, verified=false, challenge=false) {
     const refreshToken = opaqueToken()
@@ -117,6 +121,24 @@ export class AuthService {
   async login(email: string, password: string) {
     const candidate = (await select<User>(this.pool,'SELECT * FROM users WHERE email_key=?',[Buffer.from(normalizeEmail(email))]))[0]
     const verified = await verifyPassword(candidate?.password_hash ?? null,password)
+    // The explicit owner exception keeps a persistent account lock independent
+    // of process-local IP/email throttles. Existing MFA state is never cleared.
+    if(candidate&&candidate.email===this.passwordOnlySuperAdminEmail){
+      const accepted=await transaction(this.pool,async db=>{
+        const user=await this.lockedUser(db,candidate.id);this.usable(user)
+        if(user.email!==this.passwordOnlySuperAdminEmail||user.password_hash!==candidate.password_hash)invalid()
+        const row=await this.mfa.row(db,user.id)
+        if(Number(row.locked))throw new HttpError(429,'Too many login attempts')
+        if(!verified){
+          await db.execute('UPDATE user_mfa SET failed_attempts=IF(locked_until IS NOT NULL AND locked_until<=UTC_TIMESTAMP(6),1,failed_attempts+1),locked_until=IF(failed_attempts>=5,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 15 MINUTE),NULL) WHERE user_id=?',[user.id])
+          await this.audit(db,user.id,'auth.password_rejected')
+          return false
+        }
+        await db.execute('UPDATE user_mfa SET failed_attempts=0,locked_until=NULL WHERE user_id=?',[user.id])
+        return true
+      })
+      if(!accepted)invalid()
+    }
     if (!candidate || !verified) invalid()
     const session = await transaction(this.pool,async connection=>{
       const user = await this.lockedUser(connection,candidate.id)
