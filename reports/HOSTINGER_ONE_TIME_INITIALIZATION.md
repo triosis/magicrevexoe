@@ -3,6 +3,11 @@
 2026-11-12. Local implementation only. Production remains NO-GO. No production
 connection, settings change, migration, bootstrap, deployment, commit or push.
 
+Subsequent local HTTP-dispatch work is documented in
+[manual setup dispatch](HOSTINGER_MANUAL_SETUP_HTTP.md). The fingerprint/results
+below describe this earlier CLI-only revision; use the later report's exact
+artifact evidence for the updated release. Neither report authorizes production.
+
 ## What changed
 
 Added an explicit one-action job entry point, `backend/dist/setup/job-cli.js`,

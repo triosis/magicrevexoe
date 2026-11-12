@@ -23,6 +23,7 @@ import {billingRoutes} from './billing/routes.js'
 import {PresentationService} from './business/presentation.js'
 import {presentationRoutes} from './business/presentation-routes.js'
 import {configureHttpProxy} from './config/http-proxy.js'
+import type {Router} from 'express'
 
 type Dependencies = {
   env: Env
@@ -37,6 +38,7 @@ type Dependencies = {
   catalog?: CatalogService | undefined
   drafts?: DraftService | undefined
   billing?: BillingService | undefined
+  initialization?: Router | undefined
 }
 
 // Only emit known driver codes and fixed descriptions. Driver messages can
@@ -65,13 +67,15 @@ export function safeDatabaseFailure(error: unknown): string {
   return 'UNKNOWN: Database readiness failed; no raw driver details logged.'
 }
 
-export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business, funnels, feedback, subscriptions, catalog, drafts, billing }: Dependencies) {
+export function createApp({ env, isShuttingDown, checkDatabase, auth, tenants, business, funnels, feedback, subscriptions, catalog, drafts, billing, initialization }: Dependencies) {
   let lastDatabaseFailure = ''
   let lastDatabaseFailureAt = 0
   const app = express()
   app.disable('x-powered-by')
   app.use(helmet())
   configureHttpProxy(app,env)
+  // Mounted before body parsing; setup never receives client-supplied passwords.
+  if(initialization)app.use(initialization)
   app.use(cors({
     origin(origin, callback) {
       // No Origin header is normal for health probes and server-to-server calls.

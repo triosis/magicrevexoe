@@ -14,6 +14,7 @@ import {DraftService} from './ai/service.js'
 import {BillingService} from './billing/service.js'
 import {configuredRazorpay} from './billing/provider.js'
 import {databaseTransport} from './config/database-transport.js'
+import {initializationRoutes} from './setup/http.js'
 
 async function main() {
   const env = loadEnv()
@@ -32,7 +33,8 @@ async function main() {
   const billing=tenants&&subscriptions?new BillingService(pool,tenants,subscriptions,paymentProvider):undefined
   const transport=databaseTransport(env)
   if(transport.mode==='HOSTINGER_LOCAL')console.warn(JSON.stringify({event:'database.transport',mode:transport.mode,encrypted:false,approvalReference:transport.approvalId,warning:'Explicit unencrypted loopback transport; no certificate peer identity is verified.'}))
-  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions,catalog,drafts,billing })
+  const initialization=initializationRoutes(process.env)
+  const app = createApp({ env, checkDatabase: createReadinessCheck(pool), isShuttingDown: () => shuttingDown, auth,tenants,business,funnels,feedback,subscriptions,catalog,drafts,billing,initialization })
   const server = createServer(app)
   server.requestTimeout = 30_000
   server.headersTimeout = 15_000

@@ -5,16 +5,21 @@ import {mkdtemp,writeFile,readFile,readdir} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {startDisposableMariaDB} from './mariadb-fixture.mjs'
-import {runInitializationJob} from '../dist/setup/job.js'
 import {targetPolicy} from '../dist/migrations/operator.js'
 import {digest} from '../dist/migrations/schema.js'
 import {wildcardReleaseFingerprint} from '../dist/migrations/hostinger-wildcard.js'
 import {createDatabasePool} from '../dist/db/pool.js'
 import {configuredAuth} from '../dist/auth/configuration.js'
+import express from 'express'
+import {createServer,request} from 'node:https'
+import {once} from 'node:events'
+import {createHash} from 'node:crypto'
+import {initializationRoutes} from '../dist/setup/http.js'
+import {certificate} from './tls-fixture.mjs'
 
-test('explicit one-action jobs use real operator and bootstrap CLIs on disposable MariaDB',{timeout:90000},async()=>{
+test('HTTPS setup dispatches explicit jobs through real operator and bootstrap CLIs on disposable MariaDB',{timeout:90000},async()=>{
  const fixture=await startDisposableMariaDB(),database='magicreview_migration_job',user='job_migration',password=randomBytes(32).toString('hex'),ownerPassword=randomBytes(24).toString('base64')
- const q=s=>'`'+s.replaceAll('`','``')+'`',state=await mkdtemp(join(tmpdir(),'magicreview-job-integration-'))
+ const q=s=>'`'+s.replaceAll('`','``')+'`',state=await mkdtemp(join(tmpdir(),'magicreview-job-integration-')),tls=await certificate()
  let pool
  try{
   await fixture.admin.query(`CREATE DATABASE ${q(database)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`)
@@ -30,7 +35,13 @@ test('explicit one-action jobs use real operator and bootstrap CLIs on disposabl
    const target=action==='bootstrap'?join(state,'bootstrap-target.json'):targetFile
    if(action==='bootstrap')await writeFile(target,JSON.stringify(p))
    const file=join(state,action+'-job.json');await writeFile(file,JSON.stringify({action,targetFile:target,stateDirectory:state,releaseFingerprint,operatorReference:'TEST-ONLY-OPERATOR',recoveryReference:'TEST-ONLY-RECOVERY',confirmation:`INITIALIZE:${action}:${digest(p)}`}))
-   return runInitializationJob(file,inputs)
+   const token=randomBytes(32).toString('base64url'),app=express()
+   app.use(initializationRoutes({...inputs,INITIALIZATION_HTTP_ENABLED:'OWNER_APPROVED_MANUAL_SETUP',INITIALIZATION_JOB_FILE:file,INITIALIZATION_TOKEN_SHA256:createHash('sha256').update(token).digest('hex'),INITIALIZATION_EXPIRES_AT:new Date(Date.now()+60000).toISOString()}))
+   const server=createServer({key:tls.privateKey,cert:tls.ca},app);server.listen(0,'127.0.0.1');await once(server,'listening')
+   try{
+    const status=await new Promise((done,fail)=>{const req=request({host:'127.0.0.1',port:server.address().port,servername:'localhost',ca:tls.ca,path:'/internal/initialization',method:'POST',headers:{Authorization:'Bearer '+token}},res=>{res.resume();res.on('end',()=>done(res.statusCode))});req.on('error',fail);req.end()})
+    if(status!==200)throw Error('Guarded HTTPS setup refused')
+   }finally{await new Promise(r=>server.close(r))}
   }
   await job('preflight');assert.equal(JSON.parse(await readFile(join(state,'preflight.json'))).pending.length,85)
   assert.equal(Number((await fixture.admin.query('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=?',[database]))[0][0].n),0)
