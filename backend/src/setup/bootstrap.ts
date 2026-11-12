@@ -1,5 +1,5 @@
 import {randomBytes, createHash} from 'node:crypto'
-import type {Pool} from 'mysql2/promise'
+import type {Pool,PoolConnection} from 'mysql2/promise'
 import {z} from 'zod'
 import {select} from '../auth/database.js'
 import {hashPassword} from '../auth/passwords.js'
@@ -17,8 +17,8 @@ export const bootstrapInput = z.object({
 
 // Operator-only entry point; never mounted as an unauthenticated HTTP route.
 // It cannot reset passwords, adopt an existing identity, or add a second root.
-export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:()=>void=()=>{}) {
-  authorize()
+export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:(db?:PoolConnection)=>void|Promise<void>=()=>{}) {
+  await authorize()
   const parsed=bootstrapInput.safeParse(raw)
   if(!parsed.success)throw new HttpError(400,'Invalid bootstrap input')
   const input=parsed.data, passwordHash=await hashPassword(input.password)
@@ -30,6 +30,7 @@ export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:()=>voi
     lock='magicreview:migrate:'+createHash('sha256').update(String((await select(db,'SELECT DATABASE() AS name'))[0]!.name)).digest('hex').slice(0,40)
     locked=Number((await select(db,'SELECT GET_LOCK(?,5) AS acquired',[lock]))[0]!.acquired)===1
     if(!locked)throw new HttpError(409,'Bootstrap already running')
+    await authorize(db)
     const ledger=await select(db,'SELECT version,name,checksum,status FROM schema_migrations ORDER BY version')
     validateHistory(files,ledger as Parameters<typeof validateHistory>[1])
     if(ledger.length!==files.length)throw new HttpError(409,'Apply all reviewed migrations before bootstrap')
@@ -49,7 +50,7 @@ export async function bootstrapPlatform(pool:Pool, raw:unknown,authorize:()=>voi
     const role=(await select(db,"SELECT id FROM roles WHERE code='super_admin' AND tenant_kind='platform'"))[0]
     if(!role)throw new HttpError(409,'Bootstrap role unavailable')
     const platformId=randomBytes(16),userId=randomBytes(16)
-    authorize()
+    await authorize(db)
     await db.execute("INSERT INTO tenants(public_id,kind,name) VALUES (?,'platform',?)",[platformId,input.platformName])
     const tenant=(await select(db,'SELECT id FROM tenants WHERE public_id=?',[platformId]))[0]!
     // The separately authenticated operator attests the initial owner's identity.

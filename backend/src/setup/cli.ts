@@ -6,6 +6,7 @@ import {digest} from '../migrations/schema.js'
 import {bootstrapPlatform} from './bootstrap.js'
 import {checkCloudApproval,verifyCloudGrants} from '../migrations/cloud-startup.js'
 import type {SchemaManifest} from '../migrations/schema.js'
+import {checkWildcardApproval,verifyWildcardGrants,wildcardReleaseFingerprint,wildcardDisclosure} from '../migrations/hostinger-wildcard.js'
 
 // Credentials/password are protected environment inputs, never command arguments.
 let pool:ReturnType<typeof createDatabasePool>|undefined
@@ -16,6 +17,11 @@ try {
   const policy=targetPolicy.parse(JSON.parse(await readFile(flags['--target'],'utf8')))
   const cloudApprovalId=process.env.CLOUD_STARTUP_PRIVILEGE_APPROVAL_ID
   checkCloudApproval(policy,cloudApprovalId)
+  const wildcardApprovalId=process.env.HOSTINGER_WILDCARD_APPROVAL_ID
+  if(policy.hostingerWildcard){
+   checkWildcardApproval(policy,wildcardApprovalId,'bootstrap')
+   if(await wildcardReleaseFingerprint()!==policy.hostingerWildcard.releaseFingerprint||digest(JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')))!==policy.hostingerWildcard.manifestFingerprint)throw Error('Wildcard release mismatch')
+  }
   if(policy.cloudStartup?.profile==='runtime-dbwide')throw Error('Bootstrap requires initial maintenance approval')
   if(policy.cloudStartup&&policy.cloudStartup.manifestFingerprint!==digest(JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')) as SchemaManifest))throw Error('Cloud manifest mismatch')
   const localTransportApproval={acknowledgement:process.env.HOSTINGER_LOCAL_APPROVAL,approvalId:process.env.HOSTINGER_LOCAL_APPROVAL_ID}
@@ -33,7 +39,17 @@ try {
     if(triggers.some(t=>t.DEFINER!==policy.expectedAccount))throw Error('Unexpected shared trigger definer')
    }
   }finally{db.release()}
-  const result=await bootstrapPlatform(pool,{platformName:process.env.BOOTSTRAP_PLATFORM_NAME,email:process.env.BOOTSTRAP_OWNER_EMAIL,displayName:process.env.BOOTSTRAP_OWNER_NAME,password:process.env.BOOTSTRAP_OWNER_PASSWORD},()=>checkCloudApproval(policy,cloudApprovalId))
+  const result=await bootstrapPlatform(pool,{platformName:process.env.BOOTSTRAP_PLATFORM_NAME,email:process.env.BOOTSTRAP_OWNER_EMAIL,displayName:process.env.BOOTSTRAP_OWNER_NAME,password:process.env.BOOTSTRAP_OWNER_PASSWORD},async db=>{
+   checkCloudApproval(policy,cloudApprovalId)
+   checkWildcardApproval(policy,wildcardApprovalId,'bootstrap')
+   if(db&&policy.hostingerWildcard){
+    await verifyTarget(db,policy,localTransportApproval)
+    await verifyWildcardGrants(db,policy.hostingerWildcard)
+    const [triggers]=await db.query<import('mysql2/promise').RowDataPacket[]>('SELECT DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()')
+    if(triggers.some(t=>t.DEFINER!==policy.expectedAccount))throw Error('Unexpected wildcard definer')
+   }
+  })
+  if(policy.hostingerWildcard)console.info(JSON.stringify({event:'hostinger_wildcard.bootstrap_completed',targetFingerprint:digest(policy),...wildcardDisclosure(policy.hostingerWildcard)}))
   if(policy.cloudStartup)console.info(JSON.stringify({event:'cloud_startup.bootstrap_completed',approvalReference:policy.cloudStartup.approvalId,profile:policy.cloudStartup.profile,targetFingerprint:digest(policy)}))
   console.info(JSON.stringify(result))
 } catch {console.error('Bootstrap refused or failed. Review explicit target approval, protected inputs and database state. No credentials or identity details are logged.');process.exitCode=1}

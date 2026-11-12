@@ -1,3 +1,9 @@
+> **2026-11-12:** A separate, default-denied Hostinger raw-wildcard policy is
+> implemented for local rehearsal only. It explicitly reports no exact database
+> isolation; existing strict and exact-scope profiles are unchanged. Production
+> remains NO-GO. Read the [implementation and phase contract](../../reports/HOSTINGER_WILDCARD_POLICY_IMPLEMENTATION.md)
+> before considering any target policy. No wildcard activation is authorized here.
+>
 > **2026-11-10:** Optional approval-bound initial-maintenance and runtime-dbwide
 > Cloud Startup profiles now exist in local source, separately from unchanged
 > strict profiles. Read the [current security/recovery report](../../reports/HOSTINGER_CLOUD_STARTUP_IMPLEMENTATION.md)

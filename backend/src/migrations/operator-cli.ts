@@ -8,17 +8,24 @@ import {digest,verifySchema,validateManifest,type SchemaManifest} from './schema
 import {checkCloudApproval,verifyCloudGrants,cloudRuntimeRisks} from './cloud-startup.js'
 import {verifyPrivileges} from './privileges.js'
 import {approvedCa} from '../config/tls.js'
+import {checkWildcardApproval,wildcardReleaseFingerprint} from './hostinger-wildcard.js'
 
 // No dotenv, app DB_* fallback, target defaults, raw SQL/grant diagnostics or retries.
 async function main(){
  const [command,...args]=process.argv.slice(2),flags:Record<string,string>={}
- if(!['preflight','apply','check-runtime'].includes(command??''))throw new MigrationError('USAGE_OPERATOR_PREFLIGHT_APPLY_OR_CHECK_RUNTIME')
+ if(!['preflight','apply','check-runtime','verify-complete'].includes(command??''))throw new MigrationError('USAGE_OPERATOR_PREFLIGHT_APPLY_OR_CHECK_RUNTIME')
  for(let i=0;i<args.length;i+=2){const flag=args[i]!,value=args[i+1];if(!['--target','--environment','--approval','--audit','--confirm-production','--report'].includes(flag)||!value||flags[flag])throw new MigrationError('INVALID_OPERATOR_ARGUMENTS');flags[flag]=value}
  if(command!=='preflight'&&flags['--report'])throw new MigrationError('REPORT_ONLY_FOR_PREFLIGHT')
  if(!flags['--target']||!flags['--environment'])throw new MigrationError('EXPLICIT_TARGET_ENVIRONMENT_REQUIRED')
  const policy=targetPolicy.parse(JSON.parse(await readFile(flags['--target'],'utf8')))
  const cloudApprovalId=process.env.CLOUD_STARTUP_PRIVILEGE_APPROVAL_ID
  checkCloudApproval(policy,cloudApprovalId)
+ const wildcardApprovalId=process.env.HOSTINGER_WILDCARD_APPROVAL_ID
+ if(command==='verify-complete'&&!policy.hostingerWildcard)throw new MigrationError('HOSTINGER_WILDCARD_POLICY_REQUIRED')
+ if(policy.hostingerWildcard){
+  checkWildcardApproval(policy,wildcardApprovalId,command==='verify-complete'?'verify':command==='check-runtime'?'runtime':'initial')
+  if(await wildcardReleaseFingerprint()!==policy.hostingerWildcard.releaseFingerprint)throw new MigrationError('HOSTINGER_WILDCARD_RELEASE_MISMATCH')
+ }
  if(policy.cloudStartup&&((command==='check-runtime')!==(policy.cloudStartup.profile==='runtime-dbwide')))throw new MigrationError('CLOUD_STARTUP_COMMAND_PROFILE_MISMATCH')
  const localTransportApproval={acknowledgement:process.env.HOSTINGER_LOCAL_APPROVAL,approvalId:process.env.HOSTINGER_LOCAL_APPROVAL_ID}
  const transport=operatorTransport(policy,localTransportApproval)
@@ -43,7 +50,7 @@ async function main(){
  const runId=randomUUID(),targetFingerprint=digest(policy)
  const event=async(value:object)=>{const line=JSON.stringify({at:new Date().toISOString(),runId,targetFingerprint,...value})+'\n';if(audit){await audit.write(line);await audit.sync()}process.stdout.write(line)}
  try{
-  if(command==='check-runtime'){
+  if(command==='check-runtime'&&!policy.hostingerWildcard){
    const connection=await pool.getConnection()
    try{
     await verifyTarget(connection,policy,localTransportApproval)
@@ -64,7 +71,7 @@ async function main(){
    }finally{connection.destroy()}
   }else{
    const files=await loadMigrations(new URL('../../migrations/',import.meta.url)),manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8')) as SchemaManifest
-   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted,localTransportApproval,...(cloudApprovalId?{cloudApprovalId}:{})})
+   const result=await operatorMigrations(pool,files,manifest,policy,command as 'preflight'|'apply'|'verify-complete'|'check-runtime',{...(approval?{approval}:{}),...(flags['--confirm-production']?{productionConfirmation:flags['--confirm-production']}:{}),...(audit?{audit:event}:{}),interrupted:()=>interrupted,localTransportApproval,...(cloudApprovalId?{cloudApprovalId}:{}),...(wildcardApprovalId?{wildcardApprovalId}:{})})
    if(audit)await event({event:'execution_completed',summary:result})
    else{
     if(flags['--report']){const report=await open(flags['--report'],'wx',0o600);try{await report.writeFile(JSON.stringify(result)+'\n');await report.sync()}finally{await report.close()}}
