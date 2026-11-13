@@ -22,6 +22,7 @@ export function cronErrorCode(error:unknown):string{
  if(error instanceof ZodError)return 'INVALID_INITIALIZATION_CONFIGURATION'
  if(error instanceof SyntaxError)return 'INVALID_INITIALIZATION_JSON'
  if(error instanceof Error&&safeCodes.has(error.message))return error.message
+ if(error instanceof MigrationError&&/^DB_ERROR_[1-9][0-9]{3}$/.test(error.code))return error.code
  if(error instanceof MigrationError&&safeCodes.has(error.code))return error.code
  if(error&&typeof error==='object'&&'code' in error&&typeof error.code==='string'&&drivers.has(error.code))return error.code
  return 'INITIALIZATION_UNKNOWN_FAILURE'

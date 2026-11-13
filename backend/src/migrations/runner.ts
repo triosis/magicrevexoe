@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
+import {databaseFailureCode} from './failure-code.js'
 
 export class MigrationError extends Error {
   constructor(public readonly code: string) { super(code) }
@@ -181,10 +182,11 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
     return { initialized: true, applied: mode === 'up' ? migrations.map(file => file.version) : history.map(row => row.version), pending: mode === 'up' ? [] : pending.map(file => file.version) }
   } catch (error) {
     if (activeVersion) {
-      try { await connection.execute("UPDATE schema_migrations SET status='failed',failure_code='EXECUTION_FAILED' WHERE version=? AND status='applying'", [activeVersion]) } catch { /* Lost connection leaves applying; both states block. */ }
+      try { await connection.execute("UPDATE schema_migrations SET status='failed',failure_code=? WHERE version=? AND status='applying'", [databaseFailureCode(error),activeVersion]) } catch { /* Lost connection leaves applying; both states block. */ }
     }
     if (error instanceof MigrationError) throw error
-    throw new MigrationError('MIGRATION_OPERATION_FAILED')
+    const code=databaseFailureCode(error)
+    throw new MigrationError(code==='EXECUTION_FAILED'?'MIGRATION_OPERATION_FAILED':code)
   } finally {
     try {
       if (locked) {

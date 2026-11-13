@@ -1,5 +1,36 @@
 # Hostinger cron initialization using MariaDB state
 
+## Failed first-trigger review and retained error numbers
+
+The owner supplied evidence that apply stopped at migration 000024, with 000000
+through 000023 applied, and that `protect_tenants_owner` is absent. Provider support
+confirmed CREATE/TRIGGER privileges and binary logging disabled, but did not supply
+the original SQL error. The original `EXECUTION_FAILED` record cannot recover that
+lost error number. Do not infer a syntax, permission or DEFINER cause from it.
+
+The read-only `--diagnose`/`--inspect` output now includes `migrationReview` when
+the ledger exists. It checks all recorded migration names/order/checksums, counts
+the applied prefix, identifies a single failed/applying tail, compares the actual
+schema against both the applied prefix and failed-step manifest, and evaluates
+the compiled SELECT-only failed-step postcondition. It does not execute migration
+DDL, change ledger/state rows, clear markers, baseline, resume or repair anything.
+
+Future migration driver errors retain only a bounded numeric errno such as
+`DB_ERROR_1142` in the failed ledger and CLI output. Exception messages, SQL and
+credentials are still discarded. This does not reconstruct the earlier lost error.
+
+Deploy the review revision and run the existing read-only diagnostic command once.
+Do not execute the old apply JSON or change any failed ledger row. The purpose is
+to determine whether the partial schema exactly matches a known migration prefix
+before designing any separately explicit repair/recovery action.
+
+Validation: backend build, root lint and diff checks passed. Nineteen cases passed
+across cron unit, real failed-trigger review and migration-safety suites. The review
+fixture deliberately withholds TRIGGER to produce a known numeric error; this is
+test setup only and is not a claim about the actual Hostinger failure's cause.
+The failed ledger remains byte-for-byte unchanged after review and a normal
+migration rerun remains refused. Historical migration/manifest bytes are unchanged.
+
 ## Strict migration sessions and reviewed failed preflight (November 13)
 
 Owner-provided phpMyAdmin settings show InnoDB, utf8mb4_unicode_ci, FK/CHECK

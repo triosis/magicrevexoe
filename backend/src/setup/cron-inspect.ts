@@ -4,6 +4,7 @@ import {z} from 'zod'
 import {createDatabasePool} from '../db/pool.js'
 import {digest} from '../migrations/schema.js'
 import {inspectWildcardGrants,wildcardReleaseFingerprint} from '../migrations/hostinger-wildcard.js'
+import {reviewMigrationState} from './migration-review.js'
 
 // SELECT/SHOW only. Never print raw grants (which may contain password hashes).
 export async function inspectCronTarget(environment:NodeJS.ProcessEnv){
@@ -15,6 +16,11 @@ export async function inspectCronTarget(environment:NodeJS.ProcessEnv){
   const [tables]=await pool.query<RowDataPacket[]>('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')
   const manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8'))
   if(!server)throw Error('UNEXPECTED_DATABASE_TARGET')
-  return {mode:'inspect',version:String(server.version),databaseName:String(server.databaseName),serverHostname:String(server.serverHostname),expectedAccount:String(server.expectedAccount),tableCount:tables.length,manifestFingerprint:digest(manifest),releaseFingerprint:await wildcardReleaseFingerprint(),grantFingerprint:inspectWildcardGrants(grants.map(row=>String(Object.values(row)[0])),'initial'),changesMade:false}
+  let migrationReview:Awaited<ReturnType<typeof reviewMigrationState>>|undefined
+  if(tables.some(t=>t.TABLE_NAME==='schema_migrations')){
+   const db=await pool.getConnection()
+   try{migrationReview=await reviewMigrationState(db)}finally{db.release()}
+  }
+  return {mode:'inspect',version:String(server.version),databaseName:String(server.databaseName),serverHostname:String(server.serverHostname),expectedAccount:String(server.expectedAccount),tableCount:tables.length,manifestFingerprint:digest(manifest),releaseFingerprint:await wildcardReleaseFingerprint(),grantFingerprint:inspectWildcardGrants(grants.map(row=>String(Object.values(row)[0])),'initial'),...(migrationReview?{migrationReview}:{}),changesMade:false}
  }finally{await pool.end()}
 }
