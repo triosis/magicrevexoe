@@ -1,9 +1,6 @@
 # Owner-requested initial migration configuration
 
-**Do not execute these old job files after deploying the November 13 diagnostic
-code change.** That deployment changes the compiled release fingerprint. Run the
-new read-only `--diagnose` command and prepare reviewed replacement jobs from its
-actual output first. Existing failed job state must still be preserved.
+**Current files were refreshed from the owner-supplied diagnostic output at 08:41 UTC on November 13. They pin release `aa67e00ac7e1f7e68c3a484cba9920cea72d2d7784333a4be2d8ff5ce1f9aa26` and expire at 3:11 PM India time that day.** Earlier windows below are historical. Any failed job records must still be preserved.
 
 Prepared November 13, 2026, for the owner's explicit request to create application
 tables through migrations. Configuration was validated locally without connecting
@@ -85,3 +82,14 @@ Both initial-phase jobs now use 06:21?07:21 UTC (11:51 AM?12:51 PM India time).
 Existing references, target/grant/manifest/release fingerprints and credentials
 are unchanged. Both canonical action confirmations were recalculated and validated.
 No job or database operation was executed by this local refresh.
+
+## Diagnostic-based refresh at 08:41 UTC
+
+The supplied read-only diagnostic confirms zero application tables, both reference
+IDs matching, all five protected input variables present and a distinct control
+database name. It reports an expired policy and a stale release fingerprint.
+Both files now pin the newly observed release and use the 08:41?09:41 UTC window
+(2:11?3:11 PM India time). Policy digest and both action confirmations were
+recalculated and validated locally. Presence is not proof of correct operator
+passwords or control-database access; the diagnostic does not test those. No
+production migration or setup run was performed by this local refresh.
