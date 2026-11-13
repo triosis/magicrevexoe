@@ -18,14 +18,14 @@
       "runtimeApprovalReference": "RUNTIME-NOT-AUTHORIZED",
       "grantFingerprint": "2335665ed2c6e69c54fba5482985128a5796feb83dd01c2900b4782e4d72c5b6",
       "manifestFingerprint": "4a82e281add0066adf392e15a7f1135b0601607ebbf4b8eda5b7001491b35735",
-      "releaseFingerprint": "aa67e00ac7e1f7e68c3a484cba9920cea72d2d7784333a4be2d8ff5ce1f9aa26",
-      "notBefore": "2026-11-13T08:41:00.000Z",
-      "expiresAt": "2026-11-13T09:41:00.000Z",
+      "releaseFingerprint": "3ecc8451ce4a036e7f79fc994835fabc36045941e2c4ee1910ff29be943b3189",
+      "notBefore": "2026-11-13T09:48:00.000Z",
+      "expiresAt": "2026-11-13T10:48:00.000Z",
       "riskAcknowledgement": "I_ACCEPT_WILDCARD_SCHEMA_AUTHORITY_AND_SHARED_DEFINER_RISK"
     }
   },
-  "releaseFingerprint": "aa67e00ac7e1f7e68c3a484cba9920cea72d2d7784333a4be2d8ff5ce1f9aa26",
+  "releaseFingerprint": "3ecc8451ce4a036e7f79fc994835fabc36045941e2c4ee1910ff29be943b3189",
   "operatorReference": "OWNER-INIT-20261113-0434",
   "recoveryReference": "OWNER-BACKUP-STATEMENT-20261113",
-  "confirmation": "INITIALIZE:preflight:d98f3f0c8f9ef9574a8a155f076d71a5ffb11c2c1ede46af492351a7fb5fd44f"
+  "confirmation": "INITIALIZE:preflight:158e6f3dfcdb96148ba0973da0b46fd5116ab3f158bed29cf94782a96247cc7f"
 }

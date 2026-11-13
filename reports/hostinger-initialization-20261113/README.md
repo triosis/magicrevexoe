@@ -1,8 +1,6 @@
 # Owner-requested initial migration configuration
 
-**Stale again after the strict-session/reviewed-preflight code correction.**
-Obtain the new deployed release fingerprint with `--diagnose` before preparing
-replacement jobs. Existing failed preflight evidence must not be deleted.
+**Current files refreshed at 09:48 UTC, November 13, for deployed strict-session release `3ecc8451ce4a036e7f79fc994835fabc36045941e2c4ee1910ff29be943b3189`. Valid until 4:18 PM India time that day. Preserve all earlier failed preflight records and use the explicit reviewed-preflight input.**
 
 **Current files were refreshed from the owner-supplied diagnostic output at 08:41 UTC on November 13. They pin release `aa67e00ac7e1f7e68c3a484cba9920cea72d2d7784333a4be2d8ff5ce1f9aa26` and expire at 3:11 PM India time that day.** Earlier windows below are historical. Any failed job records must still be preserved.
 
@@ -97,3 +95,12 @@ Both files now pin the newly observed release and use the 08:41?09:41 UTC window
 recalculated and validated locally. Presence is not proof of correct operator
 passwords or control-database access; the diagnostic does not test those. No
 production migration or setup run was performed by this local refresh.
+
+## Latest refresh: 09:48 UTC
+
+The owner supplied diagnostic evidence of release `3ecc8451ce4a036e7f79fc994835fabc36045941e2c4ee1910ff29be943b3189`, zero application
+tables, matching reference IDs and presence of all required operator inputs.
+The jobs now use 09:48?10:48 UTC (3:18?4:18 PM India time). Both were locally
+validated after updating the release and canonical policy confirmation digests.
+Older timestamps and deployment warnings below the latest notice are historical.
+No production job was executed or state changed by this refresh.
