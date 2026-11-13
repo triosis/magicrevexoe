@@ -25,6 +25,8 @@ test('cron uses persistent database state through complete guarded migration/boo
   await fixture.admin.query('CREATE DATABASE '+q(stateName)+' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
   await fixture.admin.query("CREATE USER ?@'127.0.0.1' IDENTIFIED BY ?",[user,password])
   await fixture.admin.query('GRANT ALL PRIVILEGES ON '+q(database)+".* TO ?@'127.0.0.1'",[user])
+  // Reproduce the reported Hostinger default inside this harness-owned server.
+  await fixture.admin.query("SET GLOBAL sql_mode='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
   pool=createPool({...fixture.options,user,password,database,connectionLimit:3,charset:'utf8mb4',timezone:'Z',supportBigNumbers:true,bigNumberStrings:true})
   const stateOptions={...fixture.options,database:stateName,connectionLimit:3}
   statePool=createPool(stateOptions)
@@ -53,12 +55,25 @@ test('cron uses persistent database state through complete guarded migration/boo
   assert.equal(Number((await statePool.query('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()'))[0][0].n),0)
   await assert.rejects(executeCronJob({...job('preflight'),confirmation:'bad'},pool,statePool,env))
   await assert.rejects(executeCronJob(job('apply'),pool,statePool,env),/PREFLIGHT_REQUIRED/)
-  await executeCronJob(job('preflight'),pool,statePool,env)
+  const stateTarget=digest({host:initial.host,port:initial.port,database})
+  await withDatabaseState(statePool,stateTarget,async state=>{
+   await state.put('preflight.started',{at:'2026-11-13T06:24:04.283Z',releaseFingerprint:'old-release'})
+   await state.put('failure',{action:'preflight',code:'INITIALIZATION_REVIEW_REQUIRED'},true)
+  })
+  await assert.rejects(executeCronJob(job('preflight'),pool,statePool,env),/ALREADY_ATTEMPTED/)
+  const reviewedEnv={...env,INITIALIZATION_PREFLIGHT_REVIEW:'OWNER_REVIEWED_FAILED_EMPTY_PREFLIGHT'}
+  await executeCronJob(job('preflight'),pool,statePool,reviewedEnv)
+  await assert.rejects(executeCronJob(job('preflight'),pool,statePool,reviewedEnv),/ALREADY_ATTEMPTED/)
+  await withDatabaseState(statePool,stateTarget,async state=>{
+   assert.equal((await state.get('preflight.started')).releaseFingerprint,'old-release')
+   assert.equal((await state.get('preflight.reviewed')).previousAttempt.releaseFingerprint,'old-release')
+  })
   assert.equal(Number((await pool.query('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()'))[0][0].n),0)
   // Restart/reconnect discards all process state; preflight survives in MariaDB.
   await statePool.end();statePool=createPool(stateOptions)
   await executeCronJob(job('apply'),pool,statePool,env)
   await assert.rejects(executeCronJob(job('apply'),pool,statePool,env),/ALREADY_ATTEMPTED/)
+  await assert.rejects(executeCronJob(job('apply'),pool,statePool,reviewedEnv),/ALREADY_ATTEMPTED/)
   await executeCronJob(job('verify-complete',policy('verify')),pool,statePool,env)
   let authorizations=0
   await assert.rejects(bootstrapPlatform(pool,{platformName:env.BOOTSTRAP_PLATFORM_NAME,email:'rxadmin@revexoe.com',displayName:env.BOOTSTRAP_OWNER_NAME,password:ownerPassword},async()=>{
@@ -75,6 +90,7 @@ test('cron uses persistent database state through complete guarded migration/boo
   await assert.rejects(executeCronJob(job('check-runtime',runtime),pool,statePool,env),/ALREADY_ATTEMPTED/)
   assert.equal(Number((await pool.query('SELECT COUNT(*) AS n FROM schema_migrations'))[0][0].n),85)
   assert.equal(Number((await pool.query('SELECT COUNT(*) AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()'))[0][0].n),46)
+  assert.equal((await fixture.admin.query('SELECT @@global.sql_mode AS mode'))[0][0].mode,'NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION')
   assert.equal(await verifyPassword((await pool.query('SELECT password_hash FROM users'))[0][0].password_hash,ownerPassword),true)
   await withDatabaseState(statePool,'c'.repeat(64),async state=>{
    await state.put('apply.started',{attempt:true})

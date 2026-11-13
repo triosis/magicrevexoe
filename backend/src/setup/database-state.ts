@@ -47,4 +47,9 @@ export class DatabaseState {
   await this.owned()
   await this.db.execute('INSERT INTO initialization_records(record_key,target,kind,payload) VALUES (?,?,?,?)',[append?digest(randomUUID()):this.key(kind),this.target,kind,JSON.stringify(payload)])
  }
+ async failed(action:string){
+  await this.owned()
+  const [[row]]=await this.db.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM initialization_records WHERE target=? AND kind='failure' AND JSON_UNQUOTE(JSON_EXTRACT(payload,'$.action'))=?",[this.target,action])
+  return Number(row?.n)>0
+ }
 }

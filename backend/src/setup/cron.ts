@@ -42,14 +42,26 @@ export async function executeCronJob(job:CronJob,pool:Pool,statePool:Pool,env:No
  const connection=await pool.getConnection()
  try{await verifyTarget(connection,p,context.localTransportApproval)}finally{connection.release()}
  return withDatabaseState(statePool,target,async state=>{
-  if(await state.get(job.action+'.started'))throw Error('INITIALIZATION_ALREADY_ATTEMPTED_REVIEW_REQUIRED')
+  const previous=await state.get(job.action+'.started')
+  let reviewed=false
+  if(previous){
+   if(job.action!=='preflight'||env.INITIALIZATION_PREFLIGHT_REVIEW!=='OWNER_REVIEWED_FAILED_EMPTY_PREFLIGHT'||await state.get('preflight.reviewed')||await state.get('preflight.completed')||await state.get('apply.started')||await state.get('bootstrap.started')||!await state.failed('preflight'))throw Error('INITIALIZATION_ALREADY_ATTEMPTED_REVIEW_REQUIRED')
+   // Only one explicit recovery of a failed read-only preflight. Never reset
+   // markers, retry apply/bootstrap, or accept a nonempty application schema.
+   const db=await pool.getConnection()
+   try{
+    const [[row]]=await db.query<RowDataPacket[]>('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()')
+    if(Number(row?.n)!==0)throw Error('INITIALIZATION_PREFLIGHT_REVIEW_REQUIRES_EMPTY_SCHEMA')
+   }finally{db.release()}
+   reviewed=true
+  }
   let approval:Approval|undefined
   if(job.action==='apply'){
    const prior=await state.get('preflight.completed') as {targetFingerprint?:string;releaseFingerprint?:string;result?:{approval?:Approval}}|undefined
    if(prior?.targetFingerprint!==fingerprint||prior.releaseFingerprint!==job.releaseFingerprint||!prior.result?.approval)throw Error('INITIALIZATION_PREFLIGHT_REQUIRED')
    approval=prior.result.approval
   }
-  await state.put(job.action+'.started',{at:new Date().toISOString(),targetFingerprint:fingerprint,releaseFingerprint:job.releaseFingerprint,operatorReference:job.operatorReference,recoveryReference:job.recoveryReference})
+  await state.put(reviewed?'preflight.reviewed':job.action+'.started',{at:new Date().toISOString(),targetFingerprint:fingerprint,releaseFingerprint:job.releaseFingerprint,operatorReference:job.operatorReference,recoveryReference:job.recoveryReference,...(reviewed?{previousAttempt:previous}:{})})
   let interrupted=false
   const stop=()=>{interrupted=true}
   process.on('SIGINT',stop);process.on('SIGTERM',stop)

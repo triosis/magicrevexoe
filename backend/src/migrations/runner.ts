@@ -101,7 +101,13 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
       @@session.check_constraint_checks AS check_checks, @@session.sql_mode AS sql_mode`))[0]!
     if (String(settings.engine).toLowerCase() !== 'innodb' || settings.charset !== 'utf8mb4'
       || settings.collation !== 'utf8mb4_unicode_ci' || Number(settings.fk_checks) !== 1
-      || Number(settings.check_checks) !== 1 || !/STRICT_(TRANS|ALL)_TABLES/.test(settings.sql_mode)) fail('UNSUPPORTED_DATABASE_SETTINGS')
+      || Number(settings.check_checks) !== 1) fail('UNSUPPORTED_DATABASE_SETTINGS')
+    // Match the reference manifest's trigger-creation mode on this disposable
+    // migration connection only. Managed hosting may have permissive defaults.
+    // Never change GLOBAL settings or weaken FK/CHECK enforcement.
+    await connection.query("SET SESSION sql_mode='IGNORE_SPACE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
+    const sqlMode=(await rows(connection,'SELECT @@session.sql_mode AS sql_mode'))[0]
+    if(sqlMode?.sql_mode!=='IGNORE_SPACE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION')fail('UNSUPPORTED_DATABASE_SETTINGS')
     await connection.query("SET SESSION time_zone='+00:00'")
     // Progress rows must survive later DDL failures. Bound server-side metadata
     // lock waits without changing the application's pooled session settings.

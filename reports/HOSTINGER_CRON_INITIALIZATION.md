@@ -1,5 +1,55 @@
 # Hostinger cron initialization using MariaDB state
 
+## Strict migration sessions and reviewed failed preflight (November 13)
+
+Owner-provided phpMyAdmin settings show InnoDB, utf8mb4_unicode_ci, FK/CHECK
+enforcement enabled, and `NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION` SQL mode.
+The missing strict mode would fail the earlier runner if the Node session has the
+same defaults. The earlier stored generic failure does not independently prove its
+original cause or the Node session's actual mode.
+
+The runner now sets and verifies this migration-connection-only SQL mode after
+validating server/version/engine/charset/collation/FK/CHECK settings:
+
+```text
+IGNORE_SPACE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+```
+
+This is the existing reference manifest's mysql2 session mode, including its
+IGNORE_SPACE flag. GLOBAL configuration, other websites' connections and normal
+application pools are not changed. Migration SQL, checksums, schema manifest and
+trigger definitions remain unchanged. Do not run SET GLOBAL on the hosting server.
+
+The owner also provided a persisted failed `preflight.started` and `failure`, no
+completed preflight, and later inspection showing zero application tables. There
+is now one explicit reviewed preflight recovery input:
+
+```env
+INITIALIZATION_PREFLIGHT_REVIEW=OWNER_REVIEWED_FAILED_EMPTY_PREFLIGHT
+```
+
+It allows exactly one additional **read-only preflight** only when an earlier
+preflight-started record and matching failure exist, no completed/reviewed preflight
+exists, no apply/bootstrap-started record exists, and the selected application
+database has zero tables. The target is reverified and the ordinary operator schema,
+grant and locking checks still run. It inserts an exclusive `preflight.reviewed`
+record preserving the prior attempt; it never deletes/updates old evidence. A
+recurring second execution is refused. It never authorizes retrying apply or
+bootstrap. Remove this temporary input after its one reviewed use.
+
+Deploy this revision before using that input. First use `--diagnose` to obtain
+the new deployed release fingerprint; old job JSON remains stale/possibly expired.
+After preparing the new initial job, run preflight once and preserve its output.
+
+Verification: backend build, root lint and diff checks passed. Twenty-four cases
+passed across cron integration/unit, migration unit and migration-safety suites.
+The cron fixture sets permissive GLOBAL defaults only on its harness-owned server,
+preserves a synthetic old failed preflight, performs the explicitly reviewed check,
+then applies all 85 migrations, verifies 46 triggers and the original full schema
+manifest, and bootstraps the owner. GLOBAL mode remains permissive and unchanged by
+the application runner. Old failure markers remain intact; repeat preflight and
+apply remain blocked. No production setup or global SQL change was executed here.
+
 ## Read-only failure diagnosis (November 13 update)
 
 The original fixed generic failure hid whether a job had expired, was malformed,

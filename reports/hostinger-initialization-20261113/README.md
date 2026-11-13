@@ -1,5 +1,9 @@
 # Owner-requested initial migration configuration
 
+**Stale again after the strict-session/reviewed-preflight code correction.**
+Obtain the new deployed release fingerprint with `--diagnose` before preparing
+replacement jobs. Existing failed preflight evidence must not be deleted.
+
 **Current files were refreshed from the owner-supplied diagnostic output at 08:41 UTC on November 13. They pin release `aa67e00ac7e1f7e68c3a484cba9920cea72d2d7784333a4be2d8ff5ce1f9aa26` and expire at 3:11 PM India time that day.** Earlier windows below are historical. Any failed job records must still be preserved.
 
 Prepared November 13, 2026, for the owner's explicit request to create application
