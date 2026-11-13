@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise'
 import {databaseFailureCode} from './failure-code.js'
+import {configureMigrationSession} from './session.js'
 
 export class MigrationError extends Error {
   constructor(public readonly code: string) { super(code) }
@@ -106,9 +107,7 @@ export async function runMigrations(pool: Pool, migrations: Migration[], mode: '
     // Match the reference manifest's trigger-creation mode on this disposable
     // migration connection only. Managed hosting may have permissive defaults.
     // Never change GLOBAL settings or weaken FK/CHECK enforcement.
-    await connection.query("SET SESSION sql_mode='IGNORE_SPACE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'")
-    const sqlMode=(await rows(connection,'SELECT @@session.sql_mode AS sql_mode'))[0]
-    if(sqlMode?.sql_mode!=='IGNORE_SPACE,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION')fail('UNSUPPORTED_DATABASE_SETTINGS')
+    await configureMigrationSession(connection)
     await connection.query("SET SESSION time_zone='+00:00'")
     // Progress rows must survive later DDL failures. Bound server-side metadata
     // lock waits without changing the application's pooled session settings.

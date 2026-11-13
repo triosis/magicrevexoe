@@ -11,9 +11,10 @@ import {validLocalApprovalId} from '../config/database-transport.js'
 import {platformOwnerEmail} from '../config/platform-owner.js'
 import {bootstrapInput,bootstrapPlatform} from './bootstrap.js'
 import {withDatabaseState} from './database-state.js'
+import {repairFirstTrigger} from './first-trigger-repair.js'
 
 export const cronJob=z.object({
- action:z.enum(['preflight','apply','verify-complete','bootstrap','check-runtime']),
+ action:z.enum(['preflight','apply','verify-complete','bootstrap','check-runtime','repair-first-trigger','resume-preflight','resume-apply']),
  policy:targetPolicy,
  releaseFingerprint:z.string().regex(/^[a-f0-9]{64}$/),
  operatorReference:z.string().refine(validLocalApprovalId),
@@ -56,8 +57,14 @@ export async function executeCronJob(job:CronJob,pool:Pool,statePool:Pool,env:No
    reviewed=true
   }
   let approval:Approval|undefined
-  if(job.action==='apply'){
-   const prior=await state.get('preflight.completed') as {targetFingerprint?:string;releaseFingerprint?:string;result?:{approval?:Approval}}|undefined
+  const resume=job.action==='resume-preflight'||job.action==='resume-apply'
+  if(resume){
+   const repair=await state.get('repair-first-trigger.completed') as {releaseFingerprint?:string}|undefined
+   if(repair?.releaseFingerprint!==job.releaseFingerprint)throw Error('FIRST_TRIGGER_REPAIR_COMPLETION_REQUIRED')
+  }
+  if(job.action==='repair-first-trigger'&&(!p.hostingerWildcard||p.hostingerWildcard.phase!=='initial'||!await state.get('apply.started')||await state.get('apply.completed')||!await state.failed('apply')))throw Error('FIRST_TRIGGER_REPAIR_STATE_MISMATCH')
+  if(job.action==='apply'||job.action==='resume-apply'){
+   const prior=await state.get((resume?'resume-preflight':'preflight')+'.completed') as {targetFingerprint?:string;releaseFingerprint?:string;result?:{approval?:Approval}}|undefined
    if(prior?.targetFingerprint!==fingerprint||prior.releaseFingerprint!==job.releaseFingerprint||!prior.result?.approval)throw Error('INITIALIZATION_PREFLIGHT_REQUIRED')
    approval=prior.result.approval
   }
@@ -66,7 +73,13 @@ export async function executeCronJob(job:CronJob,pool:Pool,statePool:Pool,env:No
   const stop=()=>{interrupted=true}
   process.on('SIGINT',stop);process.on('SIGTERM',stop)
   try{
-   const result=input?await bootstrapPlatform(pool,input,async db=>{
+   const result=job.action==='repair-first-trigger'?await repairFirstTrigger(pool,files,manifest,async db=>{
+    if(interrupted)throw Error('INITIALIZATION_INTERRUPTED')
+    await state.owned()
+    checkWildcardApproval(p,context.wildcardApprovalId,'initial')
+    await verifyTarget(db,p,context.localTransportApproval)
+    await verifyWildcardGrants(db,p.hostingerWildcard!)
+   },async event=>{await state.put('audit',{at:new Date().toISOString(),action:job.action,...event},true)}):input?await bootstrapPlatform(pool,input,async db=>{
     if(interrupted)throw Error('INITIALIZATION_INTERRUPTED')
     await state.owned()
     checkCloudApproval(p,context.cloudApprovalId);checkWildcardApproval(p,context.wildcardApprovalId,'bootstrap')
@@ -77,9 +90,10 @@ export async function executeCronJob(job:CronJob,pool:Pool,statePool:Pool,env:No
      const [triggers]=await db.query<RowDataPacket[]>('SELECT DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()')
      if(triggers.some(t=>![p.expectedAccount,...p.allowedTriggerDefiners].includes(String(t.DEFINER))))throw Error('INITIALIZATION_UNAPPROVED_DEFINER')
     }
-   }):await operatorMigrations(pool,files,manifest,p,job.action as 'preflight'|'apply'|'verify-complete'|'check-runtime',{
+   }):await operatorMigrations(pool,files,manifest,p,(job.action==='resume-preflight'?'preflight':job.action==='resume-apply'?'apply':job.action) as 'preflight'|'apply'|'verify-complete'|'check-runtime',{
     ...context,...(approval?{approval}:{}),productionConfirmation:`APPLY-PRODUCTION:${fingerprint}`,
     interrupted:()=>interrupted,
+    ...(resume?{reviewedFirstTriggerResume:true as const}:{}),
     audit:async event=>{await state.put('audit',{at:new Date().toISOString(),action:job.action,...event},true)},
    })
    await state.put(job.action+'.completed',{targetFingerprint:fingerprint,releaseFingerprint:job.releaseFingerprint,result})

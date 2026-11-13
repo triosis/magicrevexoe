@@ -1,5 +1,63 @@
 # Hostinger cron initialization using MariaDB state
 
+## Confirmed first-trigger collation mismatch: scoped repair and resume
+
+The owner supplied the actual trigger metadata and exact 411-byte body hash
+`b9e73f8593dfb127b009824d13a93e5ab90659d61e29b9db5a43e180ea04aff4`.
+The body matches the reference. Hosting created it with connection collation
+`utf8mb4_unicode_ci`; the existing checked-in reference expects
+`utf8mb4_uca1400_ai_ci`. SQL mode, client charset and database collation supplied
+by the owner match. Earlier phpMyAdmin queries using DATABASE() selected
+information_schema, explaining the misleading empty results.
+
+Migration sessions now explicitly pin UTF-8 and the reference connection collation
+with SET NAMES, as well as the reference SQL mode. No GLOBAL setting changes, SQL
+file edits, checksum changes or relaxed schema comparisons are involved.
+
+The diagnostic `migrationReview.firstTriggerCollationOnlyMismatch` compares the
+complete actual schema to the original prefix manifest after substituting only
+this one metadata field in memory. It is true only when that substitution makes
+the entire prefix match. This is a read-only check, not a changed acceptance rule.
+
+New explicit cron actions:
+
+1. `repair-first-trigger`: requires the original failed apply marker/failure and
+   no completed apply; exact 25-row history with 000000–000023 applied and 000024
+   failed; unchanged names/checksums; one correctly owned trigger; zero users and
+   tenants; and the complete prefix matching after only the known collation
+   substitution. It takes the normal migration lock, audits prior state, uses
+   atomic CREATE OR REPLACE with the exact original compiled trigger body and
+   pinned session, verifies the full original prefix/postcondition, then reconciles
+   that single failed row. Original failure_code and all previous control records
+   remain. A single exclusive job marker blocks repeated attempts. Unrelated
+   drift, changed owner/body, extra ledger rows or any unexpected state is refused.
+2. `resume-preflight`: allowed only after completed repair for the same release.
+   Reuses the existing operator, with the precisely verified prefix count 25 and
+   one trigger instead of the initial empty-schema requirement. Produces a new
+   15-minute preflight approval under its own immutable action records.
+3. `resume-apply`: consumes that exact recent resume-preflight and completes only
+   the remaining original migrations. Original apply markers are never reset or
+   reused. New failures, interrupted actions and repeated attempts remain blocked.
+
+All three use an initial-phase wildcard policy, current exact release fingerprint,
+existing grant/manifest/identity checks and an action-specific INITIALIZE
+confirmation. Each action must be explicitly selected and run separately. No
+automatic retry/advancement or second production attempt was performed locally.
+After resume, run the existing separately configured verify-complete and bootstrap
+phases. Old apply/preflight JSON is stale after deploying these changes.
+
+Deploy this revision and run --diagnose first, then prepare time-bounded repair
+and resume jobs against its actual release fingerprint. Do not manually drop the
+trigger, change ledger status or clear markers in phpMyAdmin.
+
+Local validation: backend build, lint and 26 cases passed across migration unit,
+cron unit/integration, recovery and migration-safety suites. The new recovery test
+reproduces the reported trigger collation, refuses unrelated drift, preserves the
+failed history, repairs exactly that trigger and resumes to all 85 migrations and
+46 triggers matching the original full manifest. A further focused recovery/review
+rerun validates the read-only collation-only candidate indicator. No production
+repair, resume, administrator creation or login success is claimed.
+
 ## Failed first-trigger review and retained error numbers
 
 The owner supplied evidence that apply stopped at migration 000024, with 000000

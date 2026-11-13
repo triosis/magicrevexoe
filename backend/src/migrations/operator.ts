@@ -57,9 +57,10 @@ export async function verifyTarget(db:PoolConnection,policy:TargetPolicy,localAp
  }
  return digest({version:server.version,db:server.db,hostname:server.hostname,account:server.account})
 }
-export async function operatorMigrations(pool:Pool,files:Migration[],manifest:SchemaManifest,policy:TargetPolicy,mode:'preflight'|'apply'|'verify-complete'|'check-runtime',options:{approval?:Approval;productionConfirmation?:string;audit?:(event:AuditEvent)=>Promise<void>;interrupted?:()=>boolean;localTransportApproval?:LocalTransportApproval;cloudApprovalId?:string;wildcardApprovalId?:string}={}){
+export async function operatorMigrations(pool:Pool,files:Migration[],manifest:SchemaManifest,policy:TargetPolicy,mode:'preflight'|'apply'|'verify-complete'|'check-runtime',options:{approval?:Approval;productionConfirmation?:string;audit?:(event:AuditEvent)=>Promise<void>;interrupted?:()=>boolean;localTransportApproval?:LocalTransportApproval;cloudApprovalId?:string;wildcardApprovalId?:string;reviewedFirstTriggerResume?:true}={}){
  if(!['preflight','apply','verify-complete','check-runtime'].includes(mode))throw new MigrationError('INVALID_OPERATOR_MODE')
  const wildcard=policy.hostingerWildcard
+ if(options.reviewedFirstTriggerResume&&(!wildcard||wildcard.phase!=='initial'||policy.cloudStartup||!['preflight','apply'].includes(mode)))throw new MigrationError('FIRST_TRIGGER_RESUME_POLICY_MISMATCH')
  const complete=mode==='verify-complete'||mode==='check-runtime'
  if(complete&&!wildcard)throw new MigrationError('HOSTINGER_WILDCARD_POLICY_REQUIRED')
  if(wildcard){
@@ -85,9 +86,9 @@ export async function operatorMigrations(pool:Pool,files:Migration[],manifest:Sc
    if(complete&&count!==files.length)throw new MigrationError('HOSTINGER_WILDCARD_INCOMPLETE_SCHEMA')
    if((policy.cloudStartup||wildcard?.phase==='initial')&&!approval){
     boundary()
-    if(count!==0)throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
+    if(count!==(options.reviewedFirstTriggerResume?25:0))throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
     const [objects]=await db.query<RowDataPacket[]>('SELECT (SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE())+(SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE())+(SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()) AS n')
-    if(Number(objects[0]?.n)!==0)throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
+    if(Number(objects[0]?.n)!==(options.reviewedFirstTriggerResume?1:0))throw new MigrationError('CLOUD_STARTUP_INITIAL_EMPTY_ONLY')
    }
    const shape=await verifySchema(db,manifest,files,count)
    const [triggers]=await db.query<RowDataPacket[]>('SELECT DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()')
