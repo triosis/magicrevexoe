@@ -19,13 +19,13 @@
       "grantFingerprint": "2335665ed2c6e69c54fba5482985128a5796feb83dd01c2900b4782e4d72c5b6",
       "manifestFingerprint": "4a82e281add0066adf392e15a7f1135b0601607ebbf4b8eda5b7001491b35735",
       "releaseFingerprint": "9277d66ef3bcd69a757e92bf40f8daa8ddf8792e2802dcd46d38b321dc749df2",
-      "notBefore": "2026-11-13T04:34:00.000Z",
-      "expiresAt": "2026-11-13T05:34:00.000Z",
+      "notBefore": "2026-11-13T06:21:00.000Z",
+      "expiresAt": "2026-11-13T07:21:00.000Z",
       "riskAcknowledgement": "I_ACCEPT_WILDCARD_SCHEMA_AUTHORITY_AND_SHARED_DEFINER_RISK"
     }
   },
   "releaseFingerprint": "9277d66ef3bcd69a757e92bf40f8daa8ddf8792e2802dcd46d38b321dc749df2",
   "operatorReference": "OWNER-INIT-20261113-0434",
   "recoveryReference": "OWNER-BACKUP-STATEMENT-20261113",
-  "confirmation": "INITIALIZE:apply:b89250628f23c91ea8b2b6897b26afa014972665e46c3c3ab7eba032b4dc4c3e"
+  "confirmation": "INITIALIZE:apply:a14c832537c4a86a0e446ed075d5198a30ed58bd1feb63d21c69493046828ae1"
 }

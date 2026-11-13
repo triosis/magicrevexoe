@@ -1,5 +1,10 @@
 # Owner-requested initial migration configuration
 
+**Do not execute these old job files after deploying the November 13 diagnostic
+code change.** That deployment changes the compiled release fingerprint. Run the
+new read-only `--diagnose` command and prepare reviewed replacement jobs from its
+actual output first. Existing failed job state must still be preserved.
+
 Prepared November 13, 2026, for the owner's explicit request to create application
 tables through migrations. Configuration was validated locally without connecting
 to production, changing environment variables or scheduling/executing a job.
@@ -32,7 +37,7 @@ privileges or bootstrap an owner. Later phases require their own actual policies
 - Control user: `u676472791_inituser`; verify against hPanel's full username.
 - Release: `9277d66ef3bcd69a757e92bf40f8daa8ddf8792e2802dcd46d38b321dc749df2`.
 - The manifest/grant fingerprints come from the owner's supplied inspection.
-- Policy expires at **11:04 AM India time, November 13, 2026**. Do not use it later.
+- Policy expires at **12:51 PM India time, November 13, 2026**. Do not use it later.
 
 ## Execute manually in order
 
@@ -71,3 +76,12 @@ schemas. Their confirmation values use the SHA-256 digest of the parsed canonica
 policy, including its default `allowedTriggerDefiners` array. Preflight and apply
 have exactly the same parsed policy/release and different action confirmations.
 No backend source or migration bytes were changed to prepare these files.
+
+## Window refreshed after owner state inspection
+
+At 06:21 UTC on November 13 the owner supplied a screenshot of the selected
+control database showing no tables. The prior window expired before this update.
+Both initial-phase jobs now use 06:21?07:21 UTC (11:51 AM?12:51 PM India time).
+Existing references, target/grant/manifest/release fingerprints and credentials
+are unchanged. Both canonical action confirmations were recalculated and validated.
+No job or database operation was executed by this local refresh.

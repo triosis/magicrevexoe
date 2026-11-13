@@ -14,6 +14,7 @@ export async function inspectCronTarget(environment:NodeJS.ProcessEnv){
   const [grants]=await pool.query<RowDataPacket[]>('SHOW GRANTS')
   const [tables]=await pool.query<RowDataPacket[]>('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')
   const manifest=JSON.parse(await readFile(new URL('../../docs/schema-manifest.json',import.meta.url),'utf8'))
-  return {mode:'inspect',...server,tableCount:tables.length,manifestFingerprint:digest(manifest),releaseFingerprint:await wildcardReleaseFingerprint(),grantFingerprint:inspectWildcardGrants(grants.map(row=>String(Object.values(row)[0])),'initial'),changesMade:false}
+  if(!server)throw Error('UNEXPECTED_DATABASE_TARGET')
+  return {mode:'inspect',version:String(server.version),databaseName:String(server.databaseName),serverHostname:String(server.serverHostname),expectedAccount:String(server.expectedAccount),tableCount:tables.length,manifestFingerprint:digest(manifest),releaseFingerprint:await wildcardReleaseFingerprint(),grantFingerprint:inspectWildcardGrants(grants.map(row=>String(Object.values(row)[0])),'initial'),changesMade:false}
  }finally{await pool.end()}
 }

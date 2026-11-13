@@ -4,6 +4,8 @@ import {spawnSync} from 'node:child_process'
 import {executeCronJob,cronJob} from '../dist/setup/cron.js'
 import {targetPolicy} from '../dist/migrations/operator.js'
 import {digest} from '../dist/migrations/schema.js'
+import {cronErrorCode} from '../dist/setup/cron-errors.js'
+import {MigrationError} from '../dist/migrations/runner.js'
 
 const policy=targetPolicy.parse({environment:'local',host:'127.0.0.1',port:3306,database:'magicreview_migration_cron_unit',serverHostname:'synthetic',expectedAccount:'synthetic@localhost'})
 const job={action:'preflight',policy,releaseFingerprint:'0'.repeat(64),operatorReference:'TEST-OPERATOR-ONLY',recoveryReference:'TEST-RECOVERY-ONLY',confirmation:`INITIALIZE:preflight:${digest(policy)}`}
@@ -27,4 +29,10 @@ test('cron CLI refuses arguments or absent job without printing protected enviro
   assert.match(result.stderr,/INITIALIZATION_REFUSED_OR_FAILED/)
   assert.equal((result.stdout+result.stderr).includes(secret),false)
  }
+})
+
+test('cron diagnostics expose only allowlisted codes, never error details or SQL',()=>{
+ assert.equal(cronErrorCode(new MigrationError('HOSTINGER_LOCAL_APPROVAL_MISMATCH')),'HOSTINGER_LOCAL_APPROVAL_MISMATCH')
+ assert.equal(cronErrorCode(Object.assign(new Error('private-password SQL query'),{code:'ER_ACCESS_DENIED_ERROR'})),'ER_ACCESS_DENIED_ERROR')
+ for(const error of [new Error('private-password'),new MigrationError('SECRET_UNREVIEWED_CODE'),{code:'PRIVATE_PASSWORD',sql:'secret'}])assert.equal(cronErrorCode(error),'INITIALIZATION_UNKNOWN_FAILURE')
 })

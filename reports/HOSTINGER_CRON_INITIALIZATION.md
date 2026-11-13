@@ -1,5 +1,38 @@
 # Hostinger cron initialization using MariaDB state
 
+## Read-only failure diagnosis (November 13 update)
+
+The original fixed generic failure hid whether a job had expired, was malformed,
+used missing credentials or mismatched references, or pinned an older release.
+The CLI now emits an allowlisted safe error code and supports `--diagnose`.
+Raw exception messages, SQL, grants and secret values are never printed.
+
+After deploying this diagnostics revision, stop any mutating recurring cron and
+run this read-only command instead:
+
+```bash
+/opt/alt/alt-nodejs24/root/bin/node --env-file=/home/u676472791/domains/api.revexoe.com/hbuilds/config/.env /home/u676472791/domains/api.revexoe.com/hbuilds/current/nodejs/dist/setup/cron-cli.js --diagnose
+```
+
+It reports actual inspection fingerprints and fixed boolean checks for JSON,
+schema validity, policy window, release and confirmation matches, approval-ID
+matches, required operator-input presence and a distinct control-database name.
+It performs SELECT/SHOW only, does not enter the initializer, does not create
+control tables or job markers, and does not retry a failed action. Delete the
+recurring diagnostic job after capturing its output.
+
+This source change changes the compiled release fingerprint. Previously prepared
+job files must be reviewed against the new diagnostic output before any migration
+attempt; do not merely rerun a stale job after deployment. Diagnostic output does
+not independently prove state-database connectivity or absence of earlier writes.
+
+Validation: backend build, root lint and diff whitespace checks passed. Four cron
+unit cases plus the real disposable MariaDB integration case passed, including
+allowlisted driver codes, suppression of raw errors, expired/malformed/valid job
+diagnosis, secret suppression, and zero control-table creation during diagnostics.
+
+## Original runner implementation
+
 Local implementation, November 12, 2026. No production database connection,
 initialization, deployment, push or account creation was performed here.
 

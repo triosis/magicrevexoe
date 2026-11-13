@@ -13,6 +13,7 @@ import {wildcardDatabase as database,wildcardAccount,inspectWildcardGrants,wildc
 import {verifyPassword} from '../dist/auth/passwords.js'
 import {inspectCronTarget} from '../dist/setup/cron-inspect.js'
 import {bootstrapPlatform} from '../dist/setup/bootstrap.js'
+import {diagnoseCron} from '../dist/setup/cron-diagnostics.js'
 
 test('cron uses persistent database state through complete guarded migration/bootstrap and refuses repeat/failure/concurrent runs',{timeout:120000},async()=>{
  const fixture=await startDisposableMariaDB(undefined,{port:3306}),password=randomBytes(32).toString('hex'),ownerPassword=randomBytes(24).toString('base64url')
@@ -38,6 +39,18 @@ test('cron uses persistent database state through complete guarded migration/boo
   const policy=phase=>targetPolicy.parse({environment:'production',host:'127.0.0.1',port:3306,database,serverHostname:identity.hostname,expectedAccount:identity.account,transport:'HOSTINGER_LOCAL',hostingerLocalApprovalId:env.HOSTINGER_LOCAL_APPROVAL_ID,hostingerWildcard:{phase,approvalId:env.HOSTINGER_WILDCARD_APPROVAL_ID,operatorReference:'TEST-OPERATOR-APPROVAL',recoveryReference:'TEST-RECOVERY-APPROVAL',runtimeApprovalReference:'TEST-RUNTIME-APPROVAL',grantFingerprint:inspectWildcardGrants(grants,phase),manifestFingerprint:digest(manifest),releaseFingerprint,notBefore:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+600000).toISOString(),riskAcknowledgement:wildcardAcknowledgement}})
   const initial=policy('initial')
   const job=(action,p=initial)=>cronJob.parse({action,policy:p,releaseFingerprint,operatorReference:'TEST-OPERATOR-APPROVAL',recoveryReference:'TEST-RECOVERY-APPROVAL',confirmation:`INITIALIZE:${action}:${digest(p)}`})
+  const diagnoseEnv={...env,NODE_ENV:'production',DB_HOST:'127.0.0.1',DB_PORT:'3306',DB_NAME:database,DB_USER:user,DB_PASSWORD:password,DB_TLS_MODE:'HOSTINGER_LOCAL',INITIALIZATION_CRON_JOB:JSON.stringify(job('preflight'))}
+  const diagnostic=await diagnoseCron(diagnoseEnv)
+  assert.equal(diagnostic.jobSchemaValid,true);assert.equal(diagnostic.policyWindowActive,true);assert.equal(diagnostic.releaseMatches,true);assert.equal(diagnostic.confirmationMatches,true)
+  assert.equal(diagnostic.localApprovalIdMatches,true);assert.equal(diagnostic.wildcardApprovalIdMatches,true)
+  assert.equal(diagnostic.requiredInputsPresent.MIGRATION_DB_PASSWORD,false)
+  assert.equal(JSON.stringify(diagnostic).includes(password),false)
+  const expired=job('preflight');expired.policy.hostingerWildcard.notBefore='2020-01-01T00:00:00.000Z';expired.policy.hostingerWildcard.expiresAt='2020-01-01T01:00:00.000Z'
+  const expiredDiagnostic=await diagnoseCron({...diagnoseEnv,INITIALIZATION_CRON_JOB:JSON.stringify(expired)})
+  assert.equal(expiredDiagnostic.policyWindowActive,false);assert.equal(expiredDiagnostic.jobSchemaValid,false)
+  const malformed=await diagnoseCron({...diagnoseEnv,INITIALIZATION_CRON_JOB:'not-json-private-password'})
+  assert.equal(malformed.jobJsonValid,false);assert.equal(malformed.changesMade,false)
+  assert.equal(Number((await statePool.query('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()'))[0][0].n),0)
   await assert.rejects(executeCronJob({...job('preflight'),confirmation:'bad'},pool,statePool,env))
   await assert.rejects(executeCronJob(job('apply'),pool,statePool,env),/PREFLIGHT_REQUIRED/)
   await executeCronJob(job('preflight'),pool,statePool,env)
